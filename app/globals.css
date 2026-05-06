@@ -1,0 +1,61 @@
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-primary:  #1D9E75;
+  --color-bg:       #F0FDF4;
+  --color-accent:   #FF8C42;
+}
+
+* { -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  font-family: 'Nunito', sans-serif;
+  background-color: var(--color-bg);
+  overscroll-behavior: none;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #A5D6A7; border-radius: 2px; }
+
+/* Safe area for PWA on notch phones */
+.safe-top    { padding-top:    env(safe-area-inset-top); }
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+
+@layer components {
+  .btn-primary {
+    @apply bg-primary-600 text-white font-bold rounded-2xl px-6 py-3.5
+           shadow-soft active:scale-95 transition-all duration-150
+           disabled:opacity-50 disabled:cursor-not-allowed
+           hover:bg-primary-700;
+  }
+  .btn-secondary {
+    @apply bg-accent-50 text-accent-600 font-bold rounded-2xl px-6 py-3.5 border border-accent-100
+           active:scale-95 transition-all duration-150
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-ghost {
+    @apply text-gray-500 font-semibold rounded-2xl px-6 py-3.5
+           active:scale-95 transition-all duration-150;
+  }
+  .card {
+    @apply bg-white rounded-3xl shadow-card p-5;
+  }
+  .input-field {
+    @apply w-full border border-gray-200 rounded-2xl px-4 py-3.5 font-medium
+           focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-transparent
+           placeholder:text-gray-300 transition-all duration-150
+           bg-gray-50 focus:bg-white;
+  }
+  .badge {
+    @apply inline-flex items-center rounded-full px-3 py-1 text-xs font-bold;
+  }
+  .badge-green  { @apply badge bg-primary-50 text-primary-600; }
+  .badge-orange { @apply badge bg-accent-50 text-accent-600; }
+  .badge-red    { @apply badge bg-red-50 text-red-500; }
+  .badge-gray   { @apply badge bg-gray-100 text-gray-500; }
+}

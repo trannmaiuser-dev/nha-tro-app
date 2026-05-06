@@ -1,0 +1,325 @@
+'use client'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import type { AuthPayload } from '@/types'
+
+interface Room {
+  id: string
+  name: string
+  floor: number
+  price: number
+  status: string
+  tenant_id: string | null
+  tenant?: { id: string; full_name: string; phone: string } | null
+}
+
+interface Payment {
+  id: string
+  room_id: string
+  amount: number
+  due_date: string
+  status: string
+}
+
+interface Notification {
+  id: string
+  type: string
+  message: string
+  status: string
+  created_at: string
+  sender?: { full_name: string }
+}
+
+interface Props {
+  user: AuthPayload
+  rooms: Room[]
+  payments: Payment[]
+  notifications: Notification[]
+}
+
+const notifLabels: Record<string, string> = {
+  payment_confirmed:  '✅ Đã thanh toán',
+  extension_request:  '📅 Xin gia hạn',
+  payment_reminder:   '🔔 Nhắc tiền',
+}
+
+export default function OwnerDashboard({ user, rooms, payments, notifications }: Props) {
+  const router = useRouter()
+  const [sending, setSending] = useState<string | null>(null)
+  const [toast, setToast]     = useState('')
+  const [activeTab, setActiveTab] = useState<'rooms' | 'notifs'>('rooms')
+
+  const occupied = rooms.filter(r => r.status === 'occupied').length
+  const vacant   = rooms.filter(r => r.status === 'vacant').length
+  const unread   = notifications.filter(n => n.status === 'pending').length
+
+  function latestPayment(roomId: string) {
+    return payments
+      .filter(p => p.room_id === roomId)
+      .sort((a, b) => new Date(b.due_date).getTime() - new Date(a.due_date).getTime())[0]
+  }
+
+  async function sendReminder(room: Room) {
+    if (!room.tenant_id) return
+    setSending(room.id)
+    try {
+      await fetch('/api/notifications/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          receiverId: room.tenant_id,
+          type: 'payment_reminder',
+          message: `Nhắc thanh toán tiền phòng ${room.name} tháng này nhé! 💰`,
+        }),
+      })
+      showToast(`Đã gửi nhắc tiền đến phòng ${room.name}!`)
+    } finally {
+      setSending(null)
+    }
+  }
+
+  async function handleNotifAction(notifId: string, action: 'accepted' | 'rejected') {
+    await fetch('/api/notifications/action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notificationId: notifId, action }),
+    })
+    showToast(action === 'accepted' ? 'Đã xác nhận!' : 'Đã từ chối')
+    router.refresh()
+  }
+
+  async function handleLogout() {
+    await fetch('/api/auth/logout', { method: 'POST' })
+    router.push('/login')
+  }
+
+  function showToast(msg: string) {
+    setToast(msg)
+    setTimeout(() => setToast(''), 3000)
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-primary-50 to-white pb-8">
+      {/* Header */}
+      <header className="bg-white shadow-soft sticky top-0 z-30 safe-top">
+        <div className="max-w-lg mx-auto flex items-center justify-between px-5 py-4">
+          <div>
+            <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Chủ nhà</p>
+            <h1 className="text-lg font-black text-gray-800">👋 Xin chào, {user.fullName}!</h1>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setActiveTab(activeTab === 'notifs' ? 'rooms' : 'notifs')}
+              className="relative p-2 bg-gray-50 rounded-xl"
+            >
+              <BellIcon />
+              {unread > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                  {unread > 9 ? '9+' : unread}
+                </span>
+              )}
+            </button>
+            <button onClick={handleLogout} className="p-2 bg-gray-50 rounded-xl text-gray-400 hover:text-gray-600">
+              <LogoutIcon />
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div className="max-w-lg mx-auto px-4 pt-6 space-y-5">
+        {/* Stats row */}
+        <div className="grid grid-cols-3 gap-3">
+          <StatCard icon="🏠" label="Tổng phòng" value={rooms.length} color="primary" />
+          <StatCard icon="👤" label="Có người" value={occupied} color="green" />
+          <StatCard icon="🔑" label="Trống" value={vacant} color="orange" />
+        </div>
+
+        {/* Tabs */}
+        <div className="flex bg-gray-100 rounded-2xl p-1 gap-1">
+          {(['rooms', 'notifs'] as const).map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                activeTab === tab
+                  ? 'bg-white shadow-soft text-primary-600'
+                  : 'text-gray-400'
+              }`}
+            >
+              {tab === 'rooms' ? '🏠 Phòng trọ' : `🔔 Thông báo${unread > 0 ? ` (${unread})` : ''}`}
+            </button>
+          ))}
+        </div>
+
+        {/* Rooms tab */}
+        {activeTab === 'rooms' && (
+          <div className="space-y-3 animate-fade-in">
+            {rooms.map(room => {
+              const payment = latestPayment(room.id)
+              const isPaid  = payment?.status === 'paid'
+              return (
+                <div key={room.id} className="card">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl font-black ${
+                        room.status === 'occupied' ? 'bg-primary-50 text-primary-600' : 'bg-gray-100 text-gray-400'
+                      }`}>
+                        {room.name.replace('P', '')}
+                      </div>
+                      <div>
+                        <h3 className="font-black text-gray-800">Phòng {room.name}</h3>
+                        <p className="text-xs text-gray-400">Tầng {room.floor} · {formatPrice(room.price)}/tháng</p>
+                      </div>
+                    </div>
+                    <RoomBadge status={room.status} />
+                  </div>
+
+                  {room.status === 'occupied' && room.tenant && (
+                    <>
+                      <div className="flex items-center gap-2 mb-3 bg-gray-50 rounded-xl px-3 py-2">
+                        <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center text-sm font-bold text-primary-600">
+                          {room.tenant.full_name.charAt(0)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-sm text-gray-700 truncate">{room.tenant.full_name}</p>
+                          <p className="text-xs text-gray-400">{room.tenant.phone}</p>
+                        </div>
+                        <PaymentBadge status={isPaid ? 'paid' : 'pending'} dueDate={payment?.due_date} />
+                      </div>
+                      <button
+                        onClick={() => sendReminder(room)}
+                        disabled={sending === room.id}
+                        className="w-full bg-accent-50 border border-accent-100 text-accent-600 font-bold rounded-xl py-2.5 text-sm active:scale-95 transition-all disabled:opacity-50"
+                      >
+                        {sending === room.id ? '⏳ Đang gửi...' : '🔔 Nhắc tiền'}
+                      </button>
+                    </>
+                  )}
+
+                  {room.status === 'vacant' && (
+                    <div className="text-center py-2 text-sm text-gray-300 font-medium">
+                      Phòng đang trống
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Notifications tab */}
+        {activeTab === 'notifs' && (
+          <div className="space-y-3 animate-fade-in">
+            {notifications.length === 0 && (
+              <div className="card text-center py-8">
+                <p className="text-4xl mb-3">📭</p>
+                <p className="text-gray-400 font-medium">Chưa có thông báo nào</p>
+              </div>
+            )}
+            {notifications.map(notif => (
+              <div key={notif.id} className={`card ${notif.status === 'pending' ? 'border-l-4 border-primary-400' : ''}`}>
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-full bg-primary-50 flex items-center justify-center shrink-0 text-lg">
+                    {notif.type === 'payment_confirmed' ? '✅' : notif.type === 'extension_request' ? '📅' : '💬'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="font-bold text-sm text-gray-700">
+                        {notif.sender?.full_name ?? 'Khách thuê'}
+                      </p>
+                      <span className="text-xs text-gray-300 shrink-0">{formatTime(notif.created_at)}</span>
+                    </div>
+                    <p className="text-sm text-gray-500 mt-0.5">{notif.message}</p>
+                    <p className="text-xs font-bold text-primary-500 mt-1">{notifLabels[notif.type] ?? notif.type}</p>
+                  </div>
+                </div>
+                {notif.status === 'pending' && notif.type === 'extension_request' && (
+                  <div className="flex gap-2 mt-3 pt-3 border-t border-gray-50">
+                    <button
+                      onClick={() => handleNotifAction(notif.id, 'accepted')}
+                      className="flex-1 bg-primary-600 text-white font-bold rounded-xl py-2 text-sm active:scale-95 transition-all"
+                    >
+                      ✓ OK
+                    </button>
+                    <button
+                      onClick={() => handleNotifAction(notif.id, 'rejected')}
+                      className="flex-1 bg-red-50 text-red-400 font-bold rounded-xl py-2 text-sm active:scale-95 transition-all"
+                    >
+                      ✗ Từ chối
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Toast */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-800 text-white font-semibold text-sm px-5 py-3 rounded-2xl shadow-float z-50 animate-slide-up">
+          {toast}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function StatCard({ icon, label, value, color }: { icon: string; label: string; value: number; color: string }) {
+  const colors: Record<string, string> = {
+    primary: 'bg-primary-50 text-primary-600',
+    green:   'bg-green-50 text-green-600',
+    orange:  'bg-orange-50 text-orange-500',
+  }
+  return (
+    <div className="bg-white rounded-2xl shadow-card p-4 text-center">
+      <div className={`w-10 h-10 ${colors[color]} rounded-xl flex items-center justify-center text-xl mx-auto mb-2`}>{icon}</div>
+      <p className="text-2xl font-black text-gray-800">{value}</p>
+      <p className="text-xs text-gray-400 font-medium mt-0.5">{label}</p>
+    </div>
+  )
+}
+
+function RoomBadge({ status }: { status: string }) {
+  if (status === 'occupied')    return <span className="badge-green">Có người</span>
+  if (status === 'vacant')      return <span className="badge-gray">Trống</span>
+  if (status === 'maintenance') return <span className="badge-orange">Sửa chữa</span>
+  return null
+}
+
+function PaymentBadge({ status, dueDate }: { status: string; dueDate?: string }) {
+  const due = dueDate ? new Date(dueDate) : null
+  const overdue = due ? due < new Date() : false
+  if (status === 'paid')           return <span className="badge-green">Đã trả</span>
+  if (overdue)                     return <span className="badge-red">Quá hạn</span>
+  return <span className="badge-orange">Chờ trả</span>
+}
+
+function formatPrice(n: number) {
+  return n.toLocaleString('vi-VN') + 'đ'
+}
+
+function formatTime(iso: string) {
+  const d = new Date(iso)
+  return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')} · ${d.getDate()}/${d.getMonth() + 1}`
+}
+
+function BellIcon() {
+  return (
+    <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" className="text-gray-500">
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+      <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+    </svg>
+  )
+}
+
+function LogoutIcon() {
+  return (
+    <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+      <polyline points="16 17 21 12 16 7"/>
+      <line x1="21" y1="12" x2="9" y2="12"/>
+    </svg>
+  )
+}
