@@ -209,3 +209,61 @@ Nhưng thực tế:
 **Quyết định:** "Bạn đang ở cùng" chỉ hiển thị `full_name` + badge `Đại diện`. KHÔNG SĐT.
 
 **Lý do:** Khớp prompt decision rule "Trang tenant xem người cùng phòng — Chỉ hiện tên (KHÔNG SĐT) — privacy". Nếu cần liên lạc, dùng chat trong app.
+
+---
+
+# T-016c (Hotfix sau manual test fail TC1) — 2026-05-16
+
+## D19 — Password random 8 ký tự (genTempPassword), không còn 6 số CCCD
+
+**Tình huống:** UC-01 ghi "Mật khẩu tạm = 6 số cuối CCCD". Nhưng:
+- CCCD đoán được (số gần nhau, leak nhiều)
+- Brute-force 6 số chỉ 10^6 tổ hợp — yếu
+
+**Quyết định:** `genTempPassword(8)` random chữ + số, bỏ `0/O/1/I/l` để khách dễ đọc/gõ. Helper ở `lib/utils/password.ts`.
+
+**Lý do:** An toàn hơn rất nhiều (64^8 ≈ 2.8×10^14). Đã có pattern trong route legacy → copy về helper chung. Khách vẫn dùng được vì in/copy ra rõ ràng.
+
+---
+
+## D20 — Dialog hiển thị CẢ login link và password
+
+**Tình huống:** Manual test TC1 báo "login link không hiển thị". `createTenantAction` cũ chỉ trả `tempPassword + loginToken` thô.
+
+**Quyết định:** Server action build `loginLink = ${baseUrl}/first-login?token=${loginToken}` + return `roomName` + `expiresAt`. Dialog hiển thị box xanh dương cho loginLink + nút "Sao chép link" + nút "Sao chép tất cả".
+
+**Lý do:** UX: chủ trọ copy 1 link gửi Zalo cho khách thay vì copy token thô + tự ghép URL. Match pattern legacy CreateTenantModal đã có nhưng chưa nối vào AddTenantDialog.
+
+---
+
+## D21 — Xóa hẳn `app/api/owner/create-tenant/route.ts` (legacy)
+
+**Tình huống:** Route handler legacy:
+- Set `rooms.tenant_id` direct → bỏ qua `room_tenants` → nguồn gốc bug TC1
+- Trùng chức năng với `createTenantAction` (server action)
+
+**Quyết định:** `git rm` route. Không có route nào khác trong `app/api/owner/` bị ảnh hưởng (giữ `bulk-remind`).
+
+**Lý do:** Theo prompt rule "Khi có 2 entry point cùng làm 1 việc → CHỌN 1, xóa cái còn lại". Server action chuẩn hơn (revalidatePath, type safety). Để 2 chỗ sẽ drift logic và bug ngầm tái diễn.
+
+---
+
+## D22 — `id_card_number` optional trong `createTenantSchema`
+
+**Tình huống:** D19 đã chuyển password sang random → CCCD không còn cần để tạo password. Nhưng `CreateTenantModal` (legacy form) không có field CCCD. Nếu schema bắt buộc CCCD → migrate D23 sẽ break.
+
+**Quyết định:** Schema `.optional().or(z.literal(''))` cho `id_card_number`. `createTenantAccount` đổi signature param thành `string | undefined`, không dùng trong logic (chỉ giữ tham số cho backward compat với caller cũ truyền giá trị).
+
+**Lý do:** Linh hoạt cho 2 entry point: AddTenantDialog cho phép admin nhập CCCD sớm; CreateTenantModal (quick add) bỏ qua, để khách điền lúc onboarding (ProfileSetupWizard).
+
+---
+
+## D23 — Migrate `CreateTenantModal` sang `createTenantAction` (không xóa component)
+
+**Tình huống:** `CreateTenantModal` đang fetch route legacy đã xóa. 2 cách xử lý:
+- (a) Xóa modal → swap HomePageOwner + OwnerDashboard sang AddTenantDialog
+- (b) Migrate modal sang server action, giữ component
+
+**Quyết định:** (b). Đổi `fetch('/api/owner/create-tenant', ...)` → `createTenantAction({ phone, room_id })`. Validate phone 10 chữ số bắt đầu '0' để khớp schema.
+
+**Lý do:** UX hai modal khác nhau (CreateTenantModal: quick from owner home, AddTenantDialog: full form từ admin/tenants). Bảo toàn 2 UX surface. Backend giờ unified (cùng đi qua server action) → không drift logic.

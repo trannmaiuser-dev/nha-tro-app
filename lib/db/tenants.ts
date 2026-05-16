@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs'
 import { randomBytes } from 'crypto'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { addTenantToRoom } from '@/lib/db/room-tenants'
+import { genTempPassword } from '@/lib/utils/password'
 import type { User, TenantProfile, EmergencyContact, TenantBankAccount } from '@/types'
 
 // ─── Kiểu dùng nội bộ ────────────────────────────────────────
@@ -14,13 +15,16 @@ export interface TenantRow extends User {
 }
 
 // ─── Tạo tài khoản khách thuê mới (UC-01) ────────────────────
+// T-016c D22: idCardNumber giờ optional (không còn dùng làm password).
+// Password sinh random 8 ký tự bằng genTempPassword (D19) — an toàn hơn 6 số CCCD.
 export async function createTenantAccount(
   roomId: string,
   phone: string,
-  idCardNumber: string,
+  idCardNumber: string | undefined,
   fullName?: string,
 ): Promise<{ user: { id: string; phone: string }; tempPassword: string; loginToken: string }> {
   const sb = createServerSupabaseClient()
+  void idCardNumber  // giữ param signature cho backward compat — CCCD điền sau ở onboarding
 
   // Kiểm tra SĐT chưa tồn tại
   const { data: existing } = await sb.from('users').select('id').eq('phone', phone).maybeSingle()
@@ -30,8 +34,8 @@ export async function createTenantAccount(
   const { data: room } = await sb.from('rooms').select('id, name, status').eq('id', roomId).single()
   if (!room) throw new Error('Phòng không tồn tại')
 
-  // Mật khẩu tạm = 6 số cuối CCCD (UC-01)
-  const tempPassword = idCardNumber.slice(-6)
+  // Mật khẩu tạm random 8 ký tự (T-016c D19)
+  const tempPassword = genTempPassword(8)
   const passwordHash = await bcrypt.hash(tempPassword, 10)
   const token        = randomBytes(32).toString('hex')
   const expires      = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()

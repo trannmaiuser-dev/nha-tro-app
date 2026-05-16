@@ -3,10 +3,13 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Select from '@/components/ui/Select'
+import { createTenantAction } from '@/app/admin/tenants/actions'
 
 interface Room { id: string; name: string; floor: number }
 
 interface Props {
+  // T-016c: tham số đổi tên ngữ nghĩa nhưng giữ tương thích — caller có thể truyền
+  // cả phòng đã có khách (UC-02 multi-tenant); component sẽ hiển thị số người hiện tại.
   vacantRooms: Room[]
   onClose:     () => void
 }
@@ -32,17 +35,26 @@ export default function CreateTenantModal({ vacantRooms, onClose }: Props) {
   async function handleCreate() {
     if (!phone.trim() || !roomId) { setError('Vui lòng điền đầy đủ thông tin'); return }
     const digits = phone.replace(/\D/g, '')
-    if (digits.length < 9) { setError('Số điện thoại không hợp lệ'); return }
+    if (digits.length !== 10 || !digits.startsWith('0')) {
+      setError('Số điện thoại phải bắt đầu bằng 0 và có 10 chữ số')
+      return
+    }
     setLoading(true); setError('')
     try {
-      const res = await fetch('/api/owner/create-tenant', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: digits, roomId }),
+      // T-016c D21+D23: thay /api/owner/create-tenant (đã xóa) bằng server action.
+      // CCCD không thu thập ở đây (sẽ điền lúc onboarding) — D22 cho phép optional.
+      const res = await createTenantAction({
+        phone:    digits,
+        room_id:  roomId,
       })
-      const data = await res.json()
-      if (!res.ok) { setError(data.error || 'Lỗi không xác định'); return }
-      setResult(data)
+      if (!res.success) { setError(res.error || 'Lỗi không xác định'); return }
+      setResult({
+        phone:        res.data.phone,
+        roomName:     res.data.roomName,
+        tempPassword: res.data.tempPassword,
+        loginLink:    res.data.loginLink,
+        expiresAt:    res.data.expiresAt,
+      })
       router.refresh()
     } finally {
       setLoading(false)

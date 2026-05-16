@@ -4,9 +4,13 @@ export const createTenantSchema = z.object({
   phone: z
     .string()
     .regex(/^0\d{9}$/, 'Số điện thoại phải bắt đầu bằng 0 và có đúng 10 chữ số'),
+  // T-016c D22: CCCD optional — không còn dùng làm password (D19 đã chuyển sang random 8 ký tự).
+  // Vẫn nhận để admin có thể nhập sớm; nếu trống, khách điền khi onboarding.
   id_card_number: z
     .string()
-    .regex(/^\d{9}(\d{3})?$/, 'CCCD/CMND phải có 9 hoặc 12 chữ số'),
+    .regex(/^\d{9}(\d{3})?$/, 'CCCD/CMND phải có 9 hoặc 12 chữ số')
+    .optional()
+    .or(z.literal('')),
   room_id: z.string().uuid('Phòng không hợp lệ'),
   full_name: z
     .string()

@@ -29,7 +29,13 @@ export default function AddTenantDialog({ open, rooms, onClose, onAdded }: Props
   const [roomId,     setRoomId]     = useState('')
   const [fullName,   setFullName]   = useState('')
   const [loading,    setLoading]    = useState(false)
-  const [result,     setResult]     = useState<{ tempPassword: string; phone: string } | null>(null)
+  const [result,     setResult]     = useState<{
+    tempPassword: string
+    phone:        string
+    loginLink:    string
+    roomName:     string
+    expiresAt:    string
+  } | null>(null)
 
   // T-016 Phase C: cho phép chọn cả phòng đã có người (không lọc 'vacant').
   // Loại bỏ phòng 'maintenance' (đang bảo trì, không cho thuê).
@@ -42,10 +48,21 @@ export default function AddTenantDialog({ open, rooms, onClose, onAdded }: Props
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
-    const res = await createTenantAction({ phone, id_card_number: cccd, room_id: roomId, full_name: fullName || undefined })
+    const res = await createTenantAction({
+      phone,
+      id_card_number: cccd || undefined,   // T-016c D22: CCCD optional
+      room_id:        roomId,
+      full_name:      fullName || undefined,
+    })
     setLoading(false)
     if (!res.success) { toast.error(res.error); return }
-    setResult({ tempPassword: res.data.tempPassword, phone: res.data.phone })
+    setResult({
+      tempPassword: res.data.tempPassword,
+      phone:        res.data.phone,
+      loginLink:    res.data.loginLink,
+      roomName:     res.data.roomName,
+      expiresAt:    res.data.expiresAt,
+    })
   }
 
   function handleClose() {
@@ -60,31 +77,67 @@ export default function AddTenantDialog({ open, rooms, onClose, onAdded }: Props
       <div className="bg-white w-full sm:max-w-md sm:rounded-3xl rounded-t-3xl p-6 animate-slide-up" style={{ boxShadow: 'var(--shadow-float)' }} onClick={e => e.stopPropagation()}>
 
         {result ? (
-          /* Màn hình hiển thị mật khẩu tạm */
-          <div className="text-center space-y-4">
-            <div className="text-4xl">✅</div>
-            <h2 className="font-black text-gray-800 text-lg">Tạo tài khoản thành công!</h2>
-            <p className="text-sm text-gray-500">Gửi thông tin này cho khách thuê</p>
+          /* Màn hình hiển thị thông tin tài khoản đã tạo */
+          <div className="space-y-4">
+            <div className="text-center">
+              <div className="text-4xl">✅</div>
+              <h2 className="font-black text-gray-800 text-lg mt-1">Tạo tài khoản thành công!</h2>
+              <p className="text-sm text-gray-500">Gửi thông tin này cho khách thuê</p>
+            </div>
 
             <div className="bg-primary-50 rounded-2xl p-4 text-left space-y-2">
+              {result.roomName && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Phòng:</span>
+                  <span className="font-bold">{result.roomName}</span>
+                </div>
+              )}
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">Số điện thoại:</span>
                 <span className="font-bold">{result.phone}</span>
               </div>
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between items-center text-sm">
                 <span className="text-gray-500">Mật khẩu tạm:</span>
-                <span className="font-black text-primary-600 text-lg">{result.tempPassword}</span>
+                <span className="font-black text-primary-600 text-lg tracking-[0.15em]">{result.tempPassword}</span>
               </div>
             </div>
 
+            {/* Login link (T-016c D20) */}
+            <div className="rounded-2xl p-3.5 space-y-2 text-left bg-blue-50 border border-blue-100">
+              <p className="text-xs font-bold uppercase tracking-wide text-blue-600">
+                Link đăng nhập lần đầu
+              </p>
+              <p className="text-xs font-semibold break-all leading-relaxed text-blue-800">
+                {result.loginLink}
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(result.loginLink)
+                  toast.success('Đã sao chép link')
+                }}
+                className="text-xs text-blue-600 underline font-semibold"
+              >
+                Sao chép link
+              </button>
+            </div>
+
+            <p className="text-xs text-center text-gray-400">
+              ⏰ Link hết hạn ngày {new Date(result.expiresAt).toLocaleDateString('vi-VN')}
+            </p>
+
             <button
               onClick={() => {
-                navigator.clipboard.writeText(`Số điện thoại: ${result.phone}\nMật khẩu tạm: ${result.tempPassword}`)
-                toast.success('Đã sao chép thông tin')
+                navigator.clipboard.writeText(
+                  `Số điện thoại: ${result.phone}\n` +
+                  `Mật khẩu tạm: ${result.tempPassword}\n` +
+                  `Link đăng nhập: ${result.loginLink}`,
+                )
+                toast.success('Đã sao chép tất cả thông tin')
               }}
               className="btn-secondary w-full"
             >
-              📋 Sao chép thông tin
+              📋 Sao chép tất cả
             </button>
             <button onClick={handleClose} className="btn-primary w-full">Đóng</button>
           </div>
@@ -104,9 +157,9 @@ export default function AddTenantDialog({ open, rooms, onClose, onAdded }: Props
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-gray-600 mb-1.5">CCCD/CMND <span className="text-red-400">*</span></label>
-                <input value={cccd} onChange={e => setCccd(e.target.value.replace(/\D/g,'').slice(0,12))} placeholder="9 hoặc 12 số" className="input-field w-full" required />
-                <p className="text-xs text-gray-400 mt-1">Mật khẩu tạm = 6 số cuối CCCD</p>
+                <label className="block text-sm font-bold text-gray-600 mb-1.5">CCCD/CMND <span className="text-gray-400 text-xs font-normal">(tùy chọn)</span></label>
+                <input value={cccd} onChange={e => setCccd(e.target.value.replace(/\D/g,'').slice(0,12))} placeholder="9 hoặc 12 số (có thể bỏ trống)" className="input-field w-full" />
+                <p className="text-xs text-gray-400 mt-1">Khách có thể điền sau khi đăng nhập lần đầu. Mật khẩu tạm sẽ được sinh ngẫu nhiên.</p>
               </div>
 
               <div>

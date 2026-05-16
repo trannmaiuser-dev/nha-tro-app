@@ -13,7 +13,14 @@ async function verifyOwner() {
   return user
 }
 
-export async function createTenantAction(input: unknown): Promise<Result<{ tempPassword: string; loginToken: string; phone: string }>> {
+export async function createTenantAction(input: unknown): Promise<Result<{
+  tempPassword: string
+  loginToken:   string
+  loginLink:    string
+  phone:        string
+  roomName:     string
+  expiresAt:    string
+}>> {
   try {
     await verifyOwner()
     const parsed = createTenantSchema.safeParse(input)
@@ -22,9 +29,30 @@ export async function createTenantAction(input: unknown): Promise<Result<{ tempP
     const { phone, id_card_number, room_id, full_name } = parsed.data
     const result = await createTenantAccount(room_id, phone, id_card_number, full_name)
 
+    // Build login link + room name cho UI (T-016c D20).
+    // expires_at = 7 ngày (khớp first_login_expires trong createTenantAccount).
+    const { createServerSupabaseClient } = await import('@/lib/supabase-server')
+    const sb = createServerSupabaseClient()
+    const { data: room } = await sb.from('rooms').select('name').eq('id', room_id).single()
+    const baseUrl   = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const loginLink = `${baseUrl}/first-login?token=${result.loginToken}`
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+
     revalidatePath('/admin/tenants')
     revalidatePath('/rooms')
-    return { success: true, data: { tempPassword: result.tempPassword, loginToken: result.loginToken, phone } }
+    revalidatePath('/home')
+    revalidatePath('/dashboard')
+    return {
+      success: true,
+      data: {
+        tempPassword: result.tempPassword,
+        loginToken:   result.loginToken,
+        loginLink,
+        phone,
+        roomName:     room?.name ?? '',
+        expiresAt,
+      },
+    }
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : 'Không thể tạo tài khoản' }
   }
