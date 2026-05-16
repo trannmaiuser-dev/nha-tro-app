@@ -1,101 +1,74 @@
-/**
- * Copyright 2018 Google Inc. All Rights Reserved.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *     http://www.apache.org/licenses/LICENSE-2.0
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Aloha Tran Home — Service Worker
+const CACHE = 'aloha-v5'
+const STATIC = ['/icons/icon-192x192.svg', '/manifest.json']
 
-// If the loader is already loaded, just stop.
-if (!self.define) {
-  let registry = {};
+self.addEventListener('install', (e) => {
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(STATIC)).then(() => self.skipWaiting()))
+})
 
-  // Used for `eval` and `importScripts` where we can't get script URL by other means.
-  // In both cases, it's safe to use a global var because those functions are synchronous.
-  let nextDefineUri;
+self.addEventListener('activate', (e) => {
+  // Delete ALL old caches on activate
+  e.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+    ).then(() => self.clients.claim())
+  )
+})
 
-  const singleRequire = (uri, parentUri) => {
-    uri = new URL(uri + ".js", parentUri).href;
-    return registry[uri] || (
-      
-        new Promise(resolve => {
-          if ("document" in self) {
-            const script = document.createElement("script");
-            script.src = uri;
-            script.onload = resolve;
-            document.head.appendChild(script);
-          } else {
-            nextDefineUri = uri;
-            importScripts(uri);
-            resolve();
-          }
-        })
-      
-      .then(() => {
-        let promise = registry[uri];
-        if (!promise) {
-          throw new Error(`Module ${uri} didn’t register its module`);
-        }
-        return promise;
-      })
-    );
-  };
-
-  self.define = (depsNames, factory) => {
-    const uri = nextDefineUri || ("document" in self ? document.currentScript.src : "") || location.href;
-    if (registry[uri]) {
-      // Module is already loading or loaded.
-      return;
-    }
-    let exports = {};
-    const require = depUri => singleRequire(depUri, uri);
-    const specialDeps = {
-      module: { uri },
-      exports,
-      require
-    };
-    registry[uri] = Promise.all(depsNames.map(
-      depName => specialDeps[depName] || require(depName)
-    )).then(deps => {
-      factory(...deps);
-      return exports;
-    });
-  };
-}
-define(['./workbox-e43f5367'], (function (workbox) { 'use strict';
-
-  importScripts("worker-development.js");
-  self.skipWaiting();
-  workbox.clientsClaim();
-  workbox.registerRoute("/", new workbox.NetworkFirst({
-    "cacheName": "start-url",
-    plugins: [{
-      cacheWillUpdate: async ({
-        request,
-        response,
-        event,
-        state
-      }) => {
-        if (response && response.type === 'opaqueredirect') {
-          return new Response(response.body, {
-            status: 200,
-            statusText: 'OK',
-            headers: response.headers
-          });
-        }
-        return response;
+self.addEventListener('fetch', (e) => {
+  if (e.request.method !== 'GET') return
+  if (e.request.url.includes('/api/')) return
+  // Never cache Next.js built assets or HMR files — let them always hit network
+  if (e.request.url.includes('/_next/')) return
+  if (e.request.url.includes('.hot-update.')) return
+  // Bypass SW cache on hard reload (Ctrl+Shift+R) — let browser fetch fresh
+  if (e.request.cache === 'reload' || e.request.cache === 'no-store') return
+  e.respondWith(
+    caches.match(e.request).then(cached => cached || fetch(e.request).then(res => {
+      if (res.ok && e.request.url.startsWith(self.location.origin)) {
+        const clone = res.clone()
+        caches.open(CACHE).then(c => c.put(e.request, clone))
       }
-    }]
-  }), 'GET');
-  workbox.registerRoute(/.*/i, new workbox.NetworkOnly({
-    "cacheName": "dev",
-    plugins: []
-  }), 'GET');
+      return res
+    }))
+  )
+})
 
-}));
-//# sourceMappingURL=sw.js.map
+// ── Push notification ────────────────────────────────────────
+self.addEventListener('push', (e) => {
+  if (!e.data) return
+  const data = e.data.json()
+  e.waitUntil(
+    self.registration.showNotification(data.title || 'Aloha Tran Home', {
+      body:    data.body  || '',
+      icon:    '/icons/icon-192x192.svg',
+      badge:   '/icons/icon-192x192.svg',
+      vibrate: [200, 100, 200],
+      data:    data.data  || {},
+      actions: [
+        { action: 'accept', title: '✓ OK' },
+        { action: 'reject', title: '✗ Từ chối' },
+      ],
+    })
+  )
+})
+
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close()
+  const { action, notification: { data } } = e
+
+  if (action === 'reject' && data.notificationId) {
+    fetch('/api/notifications/action', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ notificationId: data.notificationId, action: 'rejected' }),
+    }).catch(() => {})
+  }
+
+  e.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      for (const c of list) if ('focus' in c) return c.focus()
+      return clients.openWindow('/dashboard')
+    })
+  )
+})

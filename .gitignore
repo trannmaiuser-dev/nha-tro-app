@@ -24,7 +24,24 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Logs
+*.log
+dev.log
+dev_err.log
+
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
 tsconfig.tsbuildinfo
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test coverage
+coverage/
+
+# Claude Code worktrees (local only)
+.claude/worktrees/
