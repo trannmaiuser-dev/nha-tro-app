@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import type { AuthPayload } from '@/types'
 
@@ -43,6 +43,11 @@ export default function TenantDashboard({ user, room, payments, notifications }:
   const [sending, setSending]   = useState<string | null>(null)
   const [toast, setToast]       = useState('')
   const [activeTab, setActiveTab] = useState<'home' | 'notifs'>('home')
+  const [unreadChat, setUnreadChat] = useState(0)
+
+  useEffect(() => {
+    fetch('/api/messages/unread').then(r => r.json()).then(d => setUnreadChat(d.count ?? 0)).catch(() => {})
+  }, [])
 
   const latestPayment = room
     ? payments.filter(p => p.room_id === room.id).sort((a, b) => new Date(b.due_date).getTime() - new Date(a.due_date).getTime())[0]
@@ -95,6 +100,14 @@ export default function TenantDashboard({ user, room, payments, notifications }:
             <h1 className="text-lg font-black text-gray-800">👋 Xin chào, {user.fullName}!</h1>
           </div>
           <div className="flex items-center gap-3">
+            <button onClick={() => router.push('/chat')} className="relative p-2 bg-gray-50 rounded-xl text-gray-500">
+              <ChatIcon />
+              {unreadChat > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                  {unreadChat > 9 ? '9+' : unreadChat}
+                </span>
+              )}
+            </button>
             <button
               onClick={() => setActiveTab(activeTab === 'notifs' ? 'home' : 'notifs')}
               className="relative p-2 bg-gray-50 rounded-xl"
@@ -290,6 +303,14 @@ function formatDate(s: string)  { const d = new Date(s); return `${d.getDate()}/
 function formatTime(iso: string) {
   const d = new Date(iso)
   return `${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')} · ${d.getDate()}/${d.getMonth()+1}`
+}
+
+function ChatIcon() {
+  return (
+    <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    </svg>
+  )
 }
 
 function BellIcon() {

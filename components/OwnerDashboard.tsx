@@ -1,8 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import type { AuthPayload } from '@/types'
+import CreateTenantModal from '@/components/CreateTenantModal'
+import { MessageCircle, Bell, LogOut, Building2, User, KeyRound } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 
 interface Room {
   id: string
@@ -49,6 +52,14 @@ export default function OwnerDashboard({ user, rooms, payments, notifications }:
   const [sending, setSending] = useState<string | null>(null)
   const [toast, setToast]     = useState('')
   const [activeTab, setActiveTab] = useState<'rooms' | 'notifs'>('rooms')
+  const [unreadChat,     setUnreadChat]     = useState(0)
+  const [showCreateModal, setShowCreateModal] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/messages/unread').then(r => r.json()).then(d => setUnreadChat(d.count ?? 0)).catch(() => {})
+  }, [])
+
+  const vacantRooms = rooms.filter(r => r.status === 'vacant').map(r => ({ id: r.id, name: r.name, floor: r.floor }))
 
   const occupied = rooms.filter(r => r.status === 'occupied').length
   const vacant   = rooms.filter(r => r.status === 'vacant').length
@@ -109,11 +120,19 @@ export default function OwnerDashboard({ user, rooms, payments, notifications }:
             <h1 className="text-lg font-black text-gray-800">👋 Xin chào, {user.fullName}!</h1>
           </div>
           <div className="flex items-center gap-3">
+            <button onClick={() => router.push('/chat')} className="relative p-2 bg-gray-50 rounded-xl text-gray-500">
+              <MessageCircle size={20} strokeWidth={1.5} />
+              {unreadChat > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                  {unreadChat > 9 ? '9+' : unreadChat}
+                </span>
+              )}
+            </button>
             <button
               onClick={() => setActiveTab(activeTab === 'notifs' ? 'rooms' : 'notifs')}
-              className="relative p-2 bg-gray-50 rounded-xl"
+              className="relative p-2 bg-gray-50 rounded-xl text-gray-500"
             >
-              <BellIcon />
+              <Bell size={20} strokeWidth={1.5} />
               {unread > 0 && (
                 <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
                   {unread > 9 ? '9+' : unread}
@@ -121,7 +140,7 @@ export default function OwnerDashboard({ user, rooms, payments, notifications }:
               )}
             </button>
             <button onClick={handleLogout} className="p-2 bg-gray-50 rounded-xl text-gray-400 hover:text-gray-600">
-              <LogoutIcon />
+              <LogOut size={20} strokeWidth={1.5} />
             </button>
           </div>
         </div>
@@ -130,9 +149,9 @@ export default function OwnerDashboard({ user, rooms, payments, notifications }:
       <div className="max-w-lg mx-auto px-4 pt-6 space-y-5">
         {/* Stats row */}
         <div className="grid grid-cols-3 gap-3">
-          <StatCard icon="🏠" label="Tổng phòng" value={rooms.length} color="primary" />
-          <StatCard icon="👤" label="Có người" value={occupied} color="green" />
-          <StatCard icon="🔑" label="Trống" value={vacant} color="orange" />
+          <StatCard Icon={Building2} label="Tổng phòng" value={rooms.length} color="primary" />
+          <StatCard Icon={User}      label="Có người"   value={occupied}      color="green" />
+          <StatCard Icon={KeyRound}  label="Trống"       value={vacant}        color="orange" />
         </div>
 
         {/* Tabs */}
@@ -187,20 +206,31 @@ export default function OwnerDashboard({ user, rooms, payments, notifications }:
                         </div>
                         <PaymentBadge status={isPaid ? 'paid' : 'pending'} dueDate={payment?.due_date} />
                       </div>
-                      <button
-                        onClick={() => sendReminder(room)}
-                        disabled={sending === room.id}
-                        className="w-full bg-accent-50 border border-accent-100 text-accent-600 font-bold rounded-xl py-2.5 text-sm active:scale-95 transition-all disabled:opacity-50"
-                      >
-                        {sending === room.id ? '⏳ Đang gửi...' : '🔔 Nhắc tiền'}
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => sendReminder(room)}
+                          disabled={sending === room.id}
+                          className="flex-1 bg-accent-50 border border-accent-100 text-accent-600 font-bold rounded-xl py-2.5 text-sm active:scale-95 transition-all disabled:opacity-50"
+                        >
+                          {sending === room.id ? '⏳ Đang gửi...' : '🔔 Nhắc tiền'}
+                        </button>
+                        <button
+                          onClick={() => router.push(`/profile/${room.tenant_id}`)}
+                          className="flex-1 bg-primary-50 border border-primary-100 text-primary-600 font-bold rounded-xl py-2.5 text-sm active:scale-95 transition-all"
+                        >
+                          📋 Hồ sơ
+                        </button>
+                      </div>
                     </>
                   )}
 
                   {room.status === 'vacant' && (
-                    <div className="text-center py-2 text-sm text-gray-300 font-medium">
-                      Phòng đang trống
-                    </div>
+                    <button
+                      onClick={() => setShowCreateModal(true)}
+                      className="w-full border border-primary-200 text-primary-600 font-bold rounded-xl py-2.5 text-sm active:scale-95 transition-all bg-primary-50"
+                    >
+                      ＋ Tạo tài khoản khách
+                    </button>
                   )}
                 </div>
               )
@@ -262,19 +292,26 @@ export default function OwnerDashboard({ user, rooms, payments, notifications }:
           {toast}
         </div>
       )}
+
+      {showCreateModal && (
+        <CreateTenantModal vacantRooms={vacantRooms} onClose={() => setShowCreateModal(false)} />
+      )}
     </div>
   )
 }
 
-function StatCard({ icon, label, value, color }: { icon: string; label: string; value: number; color: string }) {
-  const colors: Record<string, string> = {
-    primary: 'bg-primary-50 text-primary-600',
-    green:   'bg-green-50 text-green-600',
-    orange:  'bg-orange-50 text-orange-500',
+function StatCard({ Icon, label, value, color }: { Icon: LucideIcon; label: string; value: number; color: string }) {
+  const colorMap: Record<string, { bg: string; iconColor: string }> = {
+    primary: { bg: 'bg-primary-50', iconColor: '#1D9E75' },
+    green:   { bg: 'bg-green-50',   iconColor: '#16a34a' },
+    orange:  { bg: 'bg-orange-50',  iconColor: '#f97316' },
   }
+  const c = colorMap[color] || colorMap.primary
   return (
     <div className="bg-white rounded-2xl shadow-card p-4 text-center">
-      <div className={`w-10 h-10 ${colors[color]} rounded-xl flex items-center justify-center text-xl mx-auto mb-2`}>{icon}</div>
+      <div className={`w-10 h-10 ${c.bg} rounded-xl flex items-center justify-center mx-auto mb-2`}>
+        <Icon size={20} strokeWidth={1.5} color={c.iconColor} />
+      </div>
       <p className="text-2xl font-black text-gray-800">{value}</p>
       <p className="text-xs text-gray-400 font-medium mt-0.5">{label}</p>
     </div>
@@ -305,21 +342,3 @@ function formatTime(iso: string) {
   return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')} · ${d.getDate()}/${d.getMonth() + 1}`
 }
 
-function BellIcon() {
-  return (
-    <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" className="text-gray-500">
-      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-      <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-    </svg>
-  )
-}
-
-function LogoutIcon() {
-  return (
-    <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-      <polyline points="16 17 21 12 16 7"/>
-      <line x1="21" y1="12" x2="9" y2="12"/>
-    </svg>
-  )
-}

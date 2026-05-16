@@ -4,6 +4,7 @@ import { createServerSupabaseClient } from '@/lib/supabase-server'
 import OwnerDashboard from '@/components/OwnerDashboard'
 import TenantDashboard from '@/components/TenantDashboard'
 import PushNotificationSetup from '@/components/PushNotificationSetup'
+import type { Payment } from '@/types'
 
 export default async function DashboardPage() {
   const user = await getCurrentUser()
@@ -30,15 +31,14 @@ export default async function DashboardPage() {
 
   // Fetch latest payment per room
   const roomIds = (rooms as { id: string }[]).map(r => r.id)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let payments: any[] = []
+  let payments: Payment[] = []
   if (roomIds.length > 0) {
     const { data } = await sb
       .from('payments')
       .select('*')
       .in('room_id', roomIds)
       .order('due_date', { ascending: false })
-    payments = data ?? []
+    payments = (data ?? []) as Payment[]
   }
 
   // Fetch unread notifications for current user

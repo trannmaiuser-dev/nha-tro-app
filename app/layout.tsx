@@ -1,5 +1,40 @@
 import type { Metadata, Viewport } from 'next'
+import { Nunito, Caveat, Playfair_Display, Righteous, Space_Mono } from 'next/font/google'
 import './globals.css'
+import { Toaster } from 'sonner'
+import BottomNav from '@/components/BottomNav'
+
+const nunito = Nunito({
+  subsets: ['vietnamese', 'latin'],
+  weight: ['400', '500', '600', '700', '800', '900'],
+  variable: '--font-nunito',
+  display: 'swap',
+})
+const caveat = Caveat({
+  subsets: ['latin'],
+  weight: ['400', '700'],
+  variable: '--font-caveat',
+  display: 'swap',
+})
+const playfairDisplay = Playfair_Display({
+  subsets: ['latin'],
+  weight: ['400', '700'],
+  style: ['normal', 'italic'],
+  variable: '--font-playfair',
+  display: 'swap',
+})
+const righteous = Righteous({
+  subsets: ['latin'],
+  weight: ['400'],
+  variable: '--font-righteous',
+  display: 'swap',
+})
+const spaceMono = Space_Mono({
+  subsets: ['latin'],
+  weight: ['400', '700'],
+  variable: '--font-space-mono',
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
   title: 'Aloha Tran Home',
@@ -26,7 +61,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="vi">
+    <html lang="vi" className={`${nunito.variable} ${caveat.variable} ${playfairDisplay.variable} ${righteous.variable} ${spaceMono.variable}`}>
       <head>
         <link rel="manifest" href="/manifest.json" />
         <meta name="mobile-web-app-capable" content="yes" />
@@ -36,7 +71,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="antialiased">
         {children}
+        <BottomNav />
         <ServiceWorkerRegister />
+        <Toaster position="bottom-center" richColors />
       </body>
     </html>
   )
