@@ -249,4 +249,106 @@ Trạng thái phụ:
 
 ---
 
+> 2 use case mới phát sinh trong quá trình test T-016 runtime.
+> Append cuối file, sau UC-07 hiện có.
+
+---
+
+## UC-02b — Thêm khách thứ 2 vào phòng đã có người
+
+**Actor:** Chủ nhà
+**Pre-condition:** Phòng đã có ít nhất 1 khách (status='occupied')
+
+**Flow:**
+1. Chủ vào /admin/tenants hoặc /dashboard
+2. Click "Thêm khách thuê" (button mới — hiện cả khi phòng occupied)
+3. Chọn phòng đã có người trong dropdown — UI hiển thị "(đang N người)"
+4. Nhập thông tin khách mới (SĐT, tên tùy chọn)
+5. (Optional) Chủ chỉ định khách mới làm primary thay vì giữ primary cũ
+6. Submit → nhận login link + password tạm
+7. Gửi cho khách qua kênh riêng (SMS/Zalo)
+8. Khách click link, tự fill profile như khách thứ nhất
+
+**Rules:**
+- KHÔNG cần khách hiện tại đồng ý (chủ duyệt là được)
+- Khách mới mặc định is_primary=false (trừ khi chủ chỉ định)
+- KHÔNG đóng cọc thêm (cọc theo phòng)
+- Hóa đơn chưa thanh toán của phòng không bị ảnh hưởng
+- Khách mới ở chung trên cùng hóa đơn (per_person nước sẽ + 1)
+
+**Pass criteria:**
+- room_tenants có row mới is_primary=false (hoặc true nếu chủ chỉ định), left_at=null
+- Primary cũ giữ nguyên (hoặc đổi nếu chủ chỉ định khách mới làm primary)
+- rooms.tenant_id KHÔNG đổi (D10) — trừ khi chủ chỉ định khách mới làm primary
+- rooms.status vẫn 'occupied'
+- Login link 7 ngày như UC-01
+
+**Edge cases:**
+- Phòng >= 6 người: cảnh báo nhưng vẫn cho thêm
+- SĐT đã có tài khoản: từ chối "SĐT đã tồn tại"
+
+**Implement:** T-019
+
+---
+
+## UC-08 — Chuyển phòng nội bộ
+
+**Actor:** Cả chủ và khách (qua flow approval ngược chiều)
+
+**Pre-condition (BẮT BUỘC kiểm tra):**
+1. Ngày hiện tại là 1-5 trong tháng
+2. Tất cả hóa đơn của khách ở phòng cũ có status='paid'
+3. Phòng đích tồn tại và không phải 'maintenance'
+
+**Flow 1 — Khách yêu cầu chuyển:**
+1. Khách vào /tenant/move-request (hoặc tương đương)
+2. Chọn "Chuyển sang phòng khác" thay vì "Chuyển đi hẳn"
+3. Chọn phòng đích từ dropdown các phòng vacant/occupied
+4. Nhập lý do
+5. System validate pre-condition
+6. Nếu fail → block + báo lý do cụ thể
+7. Nếu pass → submit move-request với type='transfer'
+8. Chủ vào /admin/move-requests → duyệt/từ chối
+
+**Flow 2 — Chủ chủ động chuyển khách:**
+1. Chủ vào /admin/tenants → chọn khách → "Chuyển phòng"
+2. Chọn phòng đích
+3. System validate pre-condition
+4. Submit notification cho khách (type='transfer_proposal')
+5. Khách nhận push → vào app accept/reject
+6. Nếu accept → tự động thực hiện chuyển
+7. Nếu reject → notification về cho chủ
+
+**Logic chuyển (cả 2 flow đều dùng):**
+```
+1. removeTenantFromRoom(oldRoomId, userId)  -- set left_at, auto-promote nếu primary
+2. addTenantToRoom(newRoomId, userId, isPrimary)  -- chủ chỉ định primary
+```
+
+**Rules:**
+- KHÔNG chuyển hóa đơn — phải chốt hết phòng cũ trước (rule pre-condition)
+- KHÔNG chuyển cọc — chỉ là move-out + move-in mới (rule pre-condition)
+- "Đầu tháng" = ngày 1-5 hàng tháng (chốt)
+- Nếu phòng cũ thành trống → tiền cọc trả cho người cuối đứng tên (UC-04 logic cũ)
+- Nếu phòng mới chưa có người → khách thành primary tự động
+- Nếu phòng mới có người → chủ chỉ định primary (UC-02b)
+
+**Pass criteria:**
+- Sau approve/accept:
+  - room_tenants phòng cũ: row có left_at = NOW
+  - room_tenants phòng mới: row mới với is_primary theo chỉ định
+  - move_requests: status='approved' hoặc 'completed'
+  - Notification cho cả 2 phía: thành công
+- Phòng cũ status update tự động (vacant/occupied dựa trên count active còn)
+- Phòng mới status update tự động (occupied)
+
+**Schema cần thêm:**
+- `move_requests.transfer_to_room_id` (uuid nullable, NULL = move-out cũ)
+- `move_requests.initiated_by` ('owner' | 'tenant')
+- `move_requests.type` (đã có hoặc cần thêm: 'move_out' | 'transfer')
+- Notification type mới: 'transfer_proposal' (chủ → khách)
+
+**Implement:** T-020
+
+
 *Tài liệu này phản ánh ~96% kỳ vọng. Cập nhật khi có thay đổi nghiệp vụ.*
