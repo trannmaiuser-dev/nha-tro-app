@@ -324,9 +324,9 @@ export default function ProfileSetupWizard({
             <StepHeader emoji="📄" title="Giấy tờ" subtitle="CCCD và hợp đồng bắt buộc trong 7 ngày" />
 
             {docsMissing && (
-              <div className="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-2xl px-4 py-3">
-                <span className="text-orange-500 text-lg">⚠️</span>
-                <p className="text-sm text-orange-700 font-semibold">Chưa hoàn thiện — có thể bỏ qua và bổ sung sau</p>
+              <div className="flex items-center gap-2 bg-yellow-50 border border-yellow-200 rounded-2xl px-4 py-3">
+                <span className="text-yellow-500 text-lg">💡</span>
+                <p className="text-sm text-yellow-700 font-semibold">Khuyến nghị — có thể bỏ qua, bổ sung trong 7 ngày</p>
               </div>
             )}
 
@@ -588,17 +588,20 @@ export default function ProfileSetupWizard({
           <div className="animate-slide-up space-y-4">
             <StepHeader emoji="✅" title="Xem lại hồ sơ" subtitle="Kiểm tra trước khi hoàn thành" />
 
+            {/* T-021: 3 giấy tờ này là KHUYẾN NGHỊ — cho phép Hoàn thành, bổ sung trong 7 ngày. */}
             {docsMissing && (
-              <div className="bg-orange-50 border border-orange-200 rounded-2xl px-4 py-3 flex items-start gap-3">
-                <span className="text-2xl">⚠️</span>
+              <div className="bg-yellow-50 border border-yellow-200 rounded-2xl px-4 py-3 flex items-start gap-3">
+                <span className="text-2xl">💡</span>
                 <div>
-                  <p className="font-bold text-orange-700 text-sm">Giấy tờ chưa hoàn thiện</p>
-                  <p className="text-orange-600 text-xs mt-0.5">
-                    {!s2.cccd_front_url && '• Thiếu CCCD mặt trước\n'}
-                    {!s2.cccd_back_url  && '• Thiếu CCCD mặt sau\n'}
-                    {s2.contract_urls.length === 0 && '• Thiếu hợp đồng thuê nhà'}
+                  <p className="font-bold text-yellow-800 text-sm">Khuyến nghị — có thể bổ sung sau</p>
+                  <p className="text-yellow-700 text-xs mt-0.5 whitespace-pre-line">
+                    {!s2.cccd_front_url && '• CCCD mặt trước\n'}
+                    {!s2.cccd_back_url  && '• CCCD mặt sau\n'}
+                    {s2.contract_urls.length === 0 && '• Hợp đồng thuê nhà'}
                   </p>
-                  <p className="text-orange-500 text-xs mt-1 font-medium">Cần bổ sung trong vòng 7 ngày</p>
+                  <p className="text-yellow-600 text-xs mt-1 font-semibold">
+                    ✅ Vẫn có thể bấm nút Hoàn thành đăng ký — nhớ bổ sung trong 7 ngày.
+                  </p>
                 </div>
               </div>
             )}

@@ -25,11 +25,18 @@ function refreshFinance() {
   revalidatePath('/tenant/payments')
 }
 
+// T-021: approve thanh toán đổi has_debt → invalidate dashboard/home (show debt status).
+function refreshFinanceWithDashboard() {
+  refreshFinance()
+  revalidatePath('/dashboard')
+  revalidatePath('/home')
+}
+
 export async function approveFullAction(proofId: string): Promise<Result> {
   try {
     const user = await verifyOwner()
     await approvePaymentProof(proofId, undefined, user.userId)
-    refreshFinance()
+    refreshFinanceWithDashboard()
     return { success: true }
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : 'Lỗi khi duyệt' }
@@ -42,7 +49,7 @@ export async function approvePartialAction(input: unknown): Promise<Result> {
     const parsed = approvePartialSchema.safeParse(input)
     if (!parsed.success) return { success: false, error: parsed.error.issues[0].message }
     await approvePaymentProof(parsed.data.proof_id, parsed.data.amount_approved, user.userId)
-    refreshFinance()
+    refreshFinanceWithDashboard()
     return { success: true }
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : 'Lỗi khi duyệt' }

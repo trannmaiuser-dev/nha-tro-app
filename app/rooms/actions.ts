@@ -29,7 +29,10 @@ export async function createRoomAction(
     }
 
     const room = await createRoom(parsed.data)
+    // T-021: rooms CRUD đổi danh sách phòng → invalidate dashboard/home (stats + UI).
     revalidatePath('/rooms')
+    revalidatePath('/dashboard')
+    revalidatePath('/home')
     return { success: true, data: room }
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : 'Không thể tạo phòng' }
@@ -49,7 +52,10 @@ export async function updateRoomAction(
     }
 
     const room = await updateRoom(id, parsed.data)
+    // T-021: rooms CRUD đổi danh sách phòng → invalidate dashboard/home (stats + UI).
     revalidatePath('/rooms')
+    revalidatePath('/dashboard')
+    revalidatePath('/home')
     return { success: true, data: room }
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : 'Không thể cập nhật phòng' }
@@ -60,7 +66,10 @@ export async function deleteRoomAction(id: string): Promise<ActionResult> {
   try {
     await verifyOwner()
     await deleteRoom(id)
+    // T-021: rooms CRUD đổi danh sách phòng → invalidate dashboard/home (stats + UI).
     revalidatePath('/rooms')
+    revalidatePath('/dashboard')
+    revalidatePath('/home')
     return { success: true, data: undefined }
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : 'Không thể xóa phòng' }

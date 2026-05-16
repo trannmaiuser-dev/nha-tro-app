@@ -47,7 +47,11 @@ export async function createInvoicesAction(input: unknown): Promise<Result<{ cre
       note: r.note ?? null,
     })), user.userId)
 
+    // T-021: hóa đơn mới đổi tổng/trạng thái nợ → invalidate dashboard/home/tenant payments.
     revalidatePath('/admin/finance/invoices')
+    revalidatePath('/dashboard')
+    revalidatePath('/home')
+    revalidatePath('/tenant/payments')
     return { success: true, data: result }
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : 'Lỗi khi tạo hóa đơn' }
@@ -69,6 +73,9 @@ export async function updateInvoiceAction(input: unknown): Promise<Result> {
 
     revalidatePath('/admin/finance/invoices')
     revalidatePath(`/admin/finance/invoices/${id}`)
+    revalidatePath('/dashboard')
+    revalidatePath('/home')
+    revalidatePath('/tenant/payments')
     return { success: true, data: undefined }
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : 'Lỗi khi sửa' }
@@ -80,6 +87,9 @@ export async function deleteInvoiceAction(id: string): Promise<Result> {
     await verifyOwner()
     await deleteInvoice(id)
     revalidatePath('/admin/finance/invoices')
+    revalidatePath('/dashboard')
+    revalidatePath('/home')
+    revalidatePath('/tenant/payments')
     return { success: true, data: undefined }
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : 'Lỗi khi xóa' }

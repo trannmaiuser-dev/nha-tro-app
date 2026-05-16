@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidatePath } from 'next/cache'
 import { getCurrentUser } from '@/lib/auth'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { checkProfileComplete } from '@/lib/db/tenants'
 
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser()
@@ -110,7 +112,20 @@ export async function POST(req: NextRequest) {
       profile_status: 'pending',
       updated_at: new Date().toISOString(),
     }).eq('id', profileId)
-    await sb.from('users').update({ is_profile_complete: true }).eq('id', user.userId)
+
+    // T-021: gate is_profile_complete bằng checkProfileComplete (chỉ check 8
+    // required, KHÔNG check cccd_front/back/contract — optional bổ sung 7 ngày).
+    // Nếu thiếu required, trả missing list để client cảnh báo, KHÔNG set complete.
+    const isComplete = await checkProfileComplete(user.userId)
+    if (!isComplete) {
+      return NextResponse.json({
+        success: false,
+        error: 'Hồ sơ chưa đủ các trường bắt buộc (họ tên / ngày sinh / CCCD / địa chỉ / nghề / ảnh / liên hệ khẩn cấp / tài khoản ngân hàng).',
+      }, { status: 400 })
+    }
+    revalidatePath('/dashboard')
+    revalidatePath('/home')
+    revalidatePath('/profile')
   }
 
   return NextResponse.json({ success: true, profileId })

@@ -191,6 +191,11 @@ export async function markPasswordChanged(userId: string) {
 }
 
 // ─── Kiểm tra và cập nhật is_profile_complete ─────────────────
+// T-021: phân biệt rõ required (block complete) vs optional (cho qua, bổ sung 7 ngày).
+// Required (8): full_name, dob, cccd_number, address, occupation, avatar_url,
+//               ≥ 1 emergency_contact, ≥ 1 tenant_bank_account.
+// Optional (cho qua): cccd_front_url, cccd_back_url, rental_contract_url
+//                     (kiểm qua tenant_documents type='cccd_front'/'cccd_back'/'contract').
 export async function checkProfileComplete(userId: string): Promise<boolean> {
   const sb = createServerSupabaseClient()
 

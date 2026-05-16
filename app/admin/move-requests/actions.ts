@@ -16,7 +16,12 @@ export async function approveMoveRequestAction(requestId: string): Promise<Resul
   try {
     const owner = await verifyOwner()
     await approveMoveRequest(requestId, owner.userId)
+    // T-021: approve thay đổi rooms.status + room_tenants → invalidate trang
+    // hiển thị data phòng (admin + tenant + home stats), không chỉ trang request.
     revalidatePath('/admin/move-requests')
+    revalidatePath('/dashboard')
+    revalidatePath('/home')
+    revalidatePath('/rooms')
     return { success: true, data: undefined }
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : 'Không thể duyệt yêu cầu' }
