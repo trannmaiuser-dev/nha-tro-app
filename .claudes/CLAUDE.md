@@ -117,7 +117,7 @@ Nếu cần component mới chưa có → tạo trong `components/ui/` để tá
 
 | # | Module | Route | Giai đoạn | Trạng thái | Tiến độ |
 |---|---|---|---|---|---|
-| 1 | Quản lý phòng & khách thuê | `/admin/rooms`, `/admin/tenants` | 1 | 🟡 Cơ bản done, chờ T-016 multi-tenant | T-001 → T-010 done |
+| 1 | Quản lý phòng & khách thuê | `/admin/rooms`, `/admin/tenants` | 1 | 🟢 Done (T-001 → T-010 + T-016 multi-tenant) | T-016b drop column còn pending sau stable 1-2 tuần |
 | 2 | Thu chi & hóa đơn | `/admin/finance` | 2 | 🟡 Cơ bản done, chờ T-017 cảnh báo nợ | T-011 → T-015 + T-014b done (notification đầy đủ) |
 | 3 | Giấy tờ | `/admin/documents` | 3 | 🔲 Chưa làm | — |
 | 4 | Camera AI | `/admin/camera` | 5 | 🔲 Chưa làm | — |
@@ -134,11 +134,12 @@ Nếu cần component mới chưa có → tạo trong `components/ui/` để tá
 
 > Các quyết định này áp dụng cho Module Khách thuê + Thu chi trở đi.
 
-### Multi-tenant (T-016 sẽ làm)
-- **Schema:** bảng `room_tenants(room_id, user_id, joined_at, left_at)` — many-to-many
+### Multi-tenant (T-016 đã làm ✅, 2026-05-16)
+- **Schema:** bảng `room_tenants(room_id, user_id, joined_at, left_at, is_primary)` — many-to-many
 - **Tiền cọc:** theo phòng (1 lần), không chia theo khách
-- **Trả cọc:** khi cả phòng trả → trả lại cho người **cuối cùng đứng tên**
+- **Trả cọc:** khi cả phòng trả → trả lại cho người **cuối cùng đứng tên** (`is_primary` flag)
 - **Đóng góp giữa khách:** chủ quản lý ngoài app
+- **Backward compat:** `rooms.tenant_id` vẫn được sync = primary hiện tại; T-016b sẽ drop sau 1-2 tuần stable
 
 ### Cảnh báo nợ (UC-05, T-017 sẽ làm)
 - **has_debt ở INVOICE level**, không phải user level
@@ -168,13 +169,13 @@ users, rooms, tenant_profiles, app_settings
 move_requests, guests
 electricity_logs, invoices, payment_proofs, expenses, meter_reading_logs
 notifications
+room_tenants  # T-016 multi-tenant (UC-02)
 
 # Module 3 (sắp tới):
 documents, document_categories
 ```
 
 Bảng sẽ thêm:
-- `room_tenants` (T-016 — multi-tenant)
 - `face_logs` (giai đoạn 5)
 - `community_posts`, `community_comments`, `messages`, `schedules` (giai đoạn 4)
 

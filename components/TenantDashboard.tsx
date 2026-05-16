@@ -31,14 +31,22 @@ interface Notification {
   sender?: { full_name: string }
 }
 
+interface CoTenant {
+  user_id:    string
+  full_name:  string
+  is_primary: boolean
+}
+
 interface Props {
   user: AuthPayload
   room: Room | null
   payments: Payment[]
   notifications: Notification[]
+  /** Người ở cùng phòng (T-016 Phase C — UC-02). Chỉ tên, không SĐT. */
+  otherTenants?: CoTenant[]
 }
 
-export default function TenantDashboard({ user, room, payments, notifications }: Props) {
+export default function TenantDashboard({ user, room, payments, notifications, otherTenants = [] }: Props) {
   const router = useRouter()
   const [sending, setSending]   = useState<string | null>(null)
   const [toast, setToast]       = useState('')
@@ -180,6 +188,28 @@ export default function TenantDashboard({ user, room, payments, notifications }:
                     </div>
                   </div>
                 </div>
+
+                {/* Người ở cùng phòng (T-016 — UC-02). Chỉ tên, không SĐT để giữ privacy */}
+                {otherTenants.length > 0 && (
+                  <div className="card">
+                    <h3 className="font-black text-gray-800 mb-3">👥 Bạn đang ở cùng</h3>
+                    <ul className="space-y-2">
+                      {otherTenants.map(co => (
+                        <li key={co.user_id} className="flex items-center gap-3 py-1.5">
+                          <div className="w-9 h-9 bg-primary-100 rounded-full flex items-center justify-center font-bold text-primary-600 text-sm shrink-0">
+                            {co.full_name.charAt(0).toUpperCase()}
+                          </div>
+                          <span className="font-bold text-sm text-gray-700 flex-1 truncate">{co.full_name}</span>
+                          {co.is_primary && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 bg-primary-500 text-white rounded-full shrink-0">
+                              Đại diện
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
                 {/* Payment info */}
                 {latestPayment && (

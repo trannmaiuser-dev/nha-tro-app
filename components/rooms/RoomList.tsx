@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react'
 import { toast } from 'sonner'
 import { PlusIcon, SearchIcon } from 'lucide-react'
-import type { Room } from '@/types'
+import type { Room, RoomWithTenants } from '@/types'
 import type { RoomSchemaInput } from '@/lib/schemas/room'
 import { createRoomAction, updateRoomAction, deleteRoomAction } from '@/app/rooms/actions'
 import RoomCard from '@/components/rooms/RoomCard'
@@ -11,7 +11,7 @@ import RoomForm from '@/components/rooms/RoomForm'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 
 interface Props {
-  initialRooms: Room[]
+  initialRooms: RoomWithTenants[]
   defaultElectricityRate?: number
 }
 
@@ -25,7 +25,7 @@ const FILTER_TABS: { value: FilterStatus; label: string }[] = [
 ]
 
 export default function RoomList({ initialRooms, defaultElectricityRate }: Props) {
-  const [rooms, setRooms]               = useState<Room[]>(initialRooms)
+  const [rooms, setRooms]               = useState<RoomWithTenants[]>(initialRooms)
   const [search, setSearch]             = useState('')
   const [filter, setFilter]             = useState<FilterStatus>('all')
   const [modalOpen, setModalOpen]       = useState(false)
@@ -33,13 +33,14 @@ export default function RoomList({ initialRooms, defaultElectricityRate }: Props
   const [deletingRoom, setDeletingRoom] = useState<Room | null>(null)
   const [submitting, setSubmitting]     = useState(false)
 
-  /* ── Lọc danh sách ── */
+  /* ── Lọc danh sách (search match: tên phòng hoặc bất kỳ tenant nào — T-016 Phase C) ── */
   const filtered = useMemo(() => {
     const kw = search.trim().toLowerCase()
     return rooms.filter(r => {
       const matchStatus = filter === 'all' || r.status === filter
       const matchSearch = !kw
         || r.name.toLowerCase().includes(kw)
+        || (r.tenants ?? []).some(t => t.user.full_name?.toLowerCase().includes(kw))
         || r.tenant?.full_name?.toLowerCase().includes(kw)
       return matchStatus && matchSearch
     })
@@ -51,7 +52,8 @@ export default function RoomList({ initialRooms, defaultElectricityRate }: Props
     const result = await createRoomAction(data)
     setSubmitting(false)
     if (!result.success) { toast.error(result.error); return }
-    setRooms(prev => [...prev, result.data])
+    // Phòng mới luôn trống → tenants = []
+    setRooms(prev => [...prev, { ...result.data, tenants: [] }])
     setModalOpen(false)
     toast.success('Đã thêm phòng mới')
   }
@@ -63,7 +65,7 @@ export default function RoomList({ initialRooms, defaultElectricityRate }: Props
     const result = await updateRoomAction(editingRoom.id, data)
     setSubmitting(false)
     if (!result.success) { toast.error(result.error); return }
-    setRooms(prev => prev.map(r => r.id === editingRoom.id ? { ...r, ...result.data } : r))
+    setRooms(prev => prev.map(r => r.id === editingRoom.id ? { ...r, ...result.data, tenants: r.tenants } : r))
     setEditingRoom(null)
     toast.success('Đã cập nhật phòng')
   }

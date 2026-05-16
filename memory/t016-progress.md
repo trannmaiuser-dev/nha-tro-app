@@ -24,8 +24,22 @@ Start: 2026-05-16
 - [⚠️] Build (`npm run build`): fail prerender vì worktree không có .env.local — **pre-existing env issue, không liên quan T-016** (verified bằng git stash pop test)
 - [✅] Commit + push
 
-## Phase C — UI [⬜ Chưa bắt đầu]
-## Phase D — Verify [⬜ Chưa bắt đầu]
+## Phase C — UI [🟢 DONE]
+- [✅] RoomCard: hỗ trợ `Room | RoomWithTenants`, render list tenants + badge "Đại diện" cho primary, "và N người khác" cho overflow (>4)
+- [✅] RoomList: type `RoomWithTenants[]`, search match bất kỳ tenant nào trong list
+- [✅] app/rooms/page.tsx: swap `getAllRooms` → `getAllRoomsWithTenants`
+- [✅] AddTenantDialog: bỏ filter vacant-only, hiển thị tenants_count, warning >= 6 (loại 'maintenance')
+- [✅] app/admin/tenants/page.tsx: dùng getAllRoomsWithTenants để truyền tenants_count
+- [✅] TenantList + SelectableRoom type mới
+- [✅] app/dashboard/page.tsx (tenant role): query qua `getRoomsByTenant` (không còn dựa rooms.tenant_id), tìm cả khách non-primary; truyền `otherTenants`
+- [✅] TenantDashboard: section "Bạn đang ở cùng" — chỉ tên + badge primary, KHÔNG SĐT (privacy)
+- [✅] `tsc --noEmit` exit 0
+
+## Phase D — Verify [🟢 DONE — KẾT LUẬN A]
+- [✅] Scope check: 100% items có code
+- [✅] Requirement check: 🟢 KHỚP (UC-02, UC-03, cọc theo phòng, primary flag)
+- [✅] Test cases: 7 ✅ + 1 ⏭️ (12.5% skip — OK)
+- [✅] Re-verify T-007 (createTenant), T-008 (UI khách), T-013 (numPeople fix) — không regression
 
 ## Decisions Log
 Xem [memory/t016-decisions.md](t016-decisions.md) — 12 quyết định auto-decided.

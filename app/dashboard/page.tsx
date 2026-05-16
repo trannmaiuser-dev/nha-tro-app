@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { getRoomsByTenant, getTenantsByRoom } from '@/lib/db/room-tenants'
 import OwnerDashboard from '@/components/OwnerDashboard'
 import TenantDashboard from '@/components/TenantDashboard'
 import PushNotificationSetup from '@/components/PushNotificationSetup'
@@ -12,8 +13,10 @@ export default async function DashboardPage() {
 
   const sb = createServerSupabaseClient()
 
-  // Fetch rooms (owner sees all, tenant sees own)
-  let rooms = []
+  // Fetch rooms (owner sees all, tenant sees own — T-016 Phase C: qua room_tenants)
+  // Tenant có thể là non-primary; query qua room_tenants để vẫn tìm được phòng.
+  let rooms: Array<{ id: string; name: string; floor: number; price: number; status: string; tenant_id: string | null }> = []
+  let otherTenants: Array<{ user_id: string; full_name: string; is_primary: boolean }> = []
   if (user.role === 'owner') {
     const { data } = await sb
       .from('rooms')
@@ -21,12 +24,26 @@ export default async function DashboardPage() {
       .order('name')
     rooms = data ?? []
   } else {
-    const { data } = await sb
-      .from('rooms')
-      .select('*, tenant:users!tenant_id(id, full_name, phone)')
-      .eq('tenant_id', user.userId)
-      .single()
-    rooms = data ? [data] : []
+    const memberships = await getRoomsByTenant(user.userId, true)
+    if (memberships.length > 0 && memberships[0].room) {
+      const roomId = memberships[0].room.id
+      const { data: roomRow } = await sb
+        .from('rooms')
+        .select('id, name, floor, price, status, tenant_id')
+        .eq('id', roomId)
+        .single()
+      if (roomRow) rooms = [roomRow]
+
+      // Lấy danh sách người ở cùng (chỉ tên — privacy, không lộ SĐT)
+      const allTenants = await getTenantsByRoom(roomId, true)
+      otherTenants = allTenants
+        .filter(t => t.user_id !== user.userId && t.user?.full_name)
+        .map(t => ({
+          user_id:    t.user_id,
+          full_name:  t.user!.full_name,
+          is_primary: t.is_primary,
+        }))
+    }
   }
 
   // Fetch latest payment per room
@@ -65,6 +82,7 @@ export default async function DashboardPage() {
           room={rooms[0] ?? null}
           payments={payments}
           notifications={notifications ?? []}
+          otherTenants={otherTenants}
         />
       )}
     </>

@@ -4,11 +4,11 @@ import { useState, useMemo } from 'react'
 import { SearchIcon, PlusIcon } from 'lucide-react'
 import type { TenantRow } from '@/lib/db/tenants'
 import TenantCard from './TenantCard'
-import AddTenantDialog from './AddTenantDialog'
+import AddTenantDialog, { type SelectableRoom } from './AddTenantDialog'
 
 interface Props {
   initialTenants: TenantRow[]
-  rooms: { id: string; name: string; floor: number; status: string }[]
+  rooms: SelectableRoom[]
 }
 
 type Filter = 'all' | 'active' | 'invited' | 'pending_move'

@@ -1,16 +1,27 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { toast } from 'sonner'
 import { createTenantAction } from '@/app/admin/tenants/actions'
 import type { TenantRow } from '@/lib/db/tenants'
 
+/** Phòng có thể chọn khi thêm khách. `tenants_count` = số tenant đang active (T-016 Phase C). */
+export interface SelectableRoom {
+  id:            string
+  name:          string
+  floor:         number
+  status:        string
+  tenants_count: number
+}
+
 interface Props {
   open: boolean
-  rooms: { id: string; name: string; floor: number; status: string }[]
+  rooms: SelectableRoom[]
   onClose: () => void
   onAdded: (tenant: TenantRow) => void
 }
+
+const ROOM_CAPACITY_WARN = 6 // T-016 Phase C decision rule: >= 6 người → cảnh báo nhưng vẫn cho thêm
 
 export default function AddTenantDialog({ open, rooms, onClose, onAdded }: Props) {
   const [phone,      setPhone]      = useState('')
@@ -20,7 +31,13 @@ export default function AddTenantDialog({ open, rooms, onClose, onAdded }: Props
   const [loading,    setLoading]    = useState(false)
   const [result,     setResult]     = useState<{ tempPassword: string; phone: string } | null>(null)
 
-  const vacantRooms = rooms.filter(r => r.status === 'vacant')
+  // T-016 Phase C: cho phép chọn cả phòng đã có người (không lọc 'vacant').
+  // Loại bỏ phòng 'maintenance' (đang bảo trì, không cho thuê).
+  const selectableRooms = rooms.filter(r => r.status !== 'maintenance')
+  const selectedRoom = useMemo(
+    () => selectableRooms.find(r => r.id === roomId),
+    [selectableRooms, roomId],
+  )
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -95,17 +112,35 @@ export default function AddTenantDialog({ open, rooms, onClose, onAdded }: Props
               <div>
                 <label className="block text-sm font-bold text-gray-600 mb-1.5">Phòng <span className="text-red-400">*</span></label>
                 <select value={roomId} onChange={e => setRoomId(e.target.value)} className="input-field w-full" required>
-                  <option value="">-- Chọn phòng trống --</option>
-                  {vacantRooms.map(r => (
-                    <option key={r.id} value={r.id}>Phòng {r.name} (Tầng {r.floor})</option>
-                  ))}
+                  <option value="">-- Chọn phòng --</option>
+                  {selectableRooms.map(r => {
+                    const suffix = r.tenants_count === 0
+                      ? '(trống)'
+                      : `(đang ${r.tenants_count} người)`
+                    return (
+                      <option key={r.id} value={r.id}>
+                        Phòng {r.name} · Tầng {r.floor} {suffix}
+                      </option>
+                    )
+                  })}
                 </select>
-                {vacantRooms.length === 0 && <p className="text-xs text-orange-500 mt-1">Không có phòng trống</p>}
+                {selectableRooms.length === 0 && <p className="text-xs text-orange-500 mt-1">Không có phòng khả dụng</p>}
+                {selectedRoom && selectedRoom.tenants_count >= ROOM_CAPACITY_WARN && (
+                  <p className="text-xs text-amber-600 mt-1.5 flex items-start gap-1">
+                    <span>⚠️</span>
+                    <span>Phòng đã có {selectedRoom.tenants_count} người. Bạn vẫn có thể thêm — khách mới sẽ vào với vai trò thường (không phải đại diện).</span>
+                  </p>
+                )}
+                {selectedRoom && selectedRoom.tenants_count > 0 && selectedRoom.tenants_count < ROOM_CAPACITY_WARN && (
+                  <p className="text-xs text-gray-500 mt-1.5">
+                    Phòng đã có {selectedRoom.tenants_count} người. Khách mới sẽ ở cùng (không phải đại diện).
+                  </p>
+                )}
               </div>
 
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={handleClose} className="btn-secondary flex-1" disabled={loading}>Hủy</button>
-                <button type="submit" className="btn-primary flex-1 flex items-center justify-center gap-2" disabled={loading || vacantRooms.length === 0}>
+                <button type="submit" className="btn-primary flex-1 flex items-center justify-center gap-2" disabled={loading || selectableRooms.length === 0}>
                   {loading && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
                   Tạo tài khoản
                 </button>

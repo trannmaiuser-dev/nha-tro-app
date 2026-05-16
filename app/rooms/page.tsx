@@ -1,11 +1,11 @@
 import Link from 'next/link'
-import { getAllRooms } from '@/lib/db/rooms'
+import { getAllRoomsWithTenants } from '@/lib/db/rooms'
 import { getSetting } from '@/lib/db/settings'
 import RoomList from '@/components/rooms/RoomList'
 
 export default async function RoomsPage() {
   const [rooms, defaultElectricityRate] = await Promise.all([
-    getAllRooms(),
+    getAllRoomsWithTenants(),
     getSetting<number>('electricity_rate_default'),
   ])
 

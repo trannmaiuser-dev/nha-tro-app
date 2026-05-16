@@ -1,15 +1,18 @@
 'use client'
 
-import type { Room } from '@/types'
+import type { Room, RoomTenantEntry, RoomWithTenants } from '@/types'
 import { PencilIcon, TrashIcon } from 'lucide-react'
 
 interface Props {
-  room: Room
+  /** Hỗ trợ Room (legacy — đọc qua room.tenant) hoặc RoomWithTenants (multi-tenant — đọc qua room.tenants[]). */
+  room: Room | RoomWithTenants
   onEdit: (room: Room) => void
   onDelete: (room: Room) => void
   /** Đơn giá điện default từ app_settings (dùng khi room.electricity_rate = null) */
   defaultElectricityRate?: number
 }
+
+const MAX_VISIBLE_TENANTS = 4
 
 const STATUS_CONFIG = {
   vacant:      { label: 'Phòng trống', cls: 'badge-gray' },
@@ -64,20 +67,8 @@ export default function RoomCard({ room, onEdit, onDelete, defaultElectricityRat
         </div>
       )}
 
-      {/* Khách thuê */}
-      {room.tenant ? (
-        <div className="bg-primary-50 rounded-xl p-2.5 flex items-center gap-2">
-          <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center font-bold text-primary-600 text-sm shrink-0">
-            {room.tenant.full_name.charAt(0)}
-          </div>
-          <div className="min-w-0">
-            <p className="font-bold text-sm text-gray-700 truncate">{room.tenant.full_name}</p>
-            <p className="text-xs text-gray-400">{room.tenant.phone}</p>
-          </div>
-        </div>
-      ) : (
-        <p className="text-xs text-gray-300 italic text-center py-1">Chưa có khách thuê</p>
-      )}
+      {/* Khách thuê — multi-tenant (T-016 Phase C) */}
+      <TenantSection room={room} />
 
       {/* Ghi chú */}
       {room.note && (
@@ -101,6 +92,66 @@ export default function RoomCard({ room, onEdit, onDelete, defaultElectricityRat
           Xóa
         </button>
       </div>
+    </div>
+  )
+}
+
+/**
+ * Section hiển thị danh sách khách thuê:
+ * - Nếu room có `tenants[]` (RoomWithTenants) → render list, đánh dấu "Đại diện" cho primary.
+ * - Nếu chỉ có `tenant` (legacy Room) → render 1 người như cũ.
+ * - Nếu cả 2 đều trống → "Chưa có khách thuê".
+ */
+function TenantSection({ room }: { room: Room | RoomWithTenants }) {
+  const tenants = (room as RoomWithTenants).tenants
+  if (Array.isArray(tenants)) {
+    if (tenants.length === 0) {
+      return <p className="text-xs text-gray-300 italic text-center py-1">Chưa có khách thuê</p>
+    }
+    const visible = tenants.slice(0, MAX_VISIBLE_TENANTS)
+    const overflow = tenants.length - visible.length
+    return (
+      <div className="bg-primary-50 rounded-xl p-2.5 space-y-1.5">
+        {visible.map(t => <TenantRow key={t.id} entry={t} />)}
+        {overflow > 0 && (
+          <p className="text-xs text-gray-500 italic pl-10">và {overflow} người khác</p>
+        )}
+      </div>
+    )
+  }
+
+  // Legacy fallback: Room với room.tenant (chỉ primary)
+  if (room.tenant) {
+    return (
+      <div className="bg-primary-50 rounded-xl p-2.5 flex items-center gap-2">
+        <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center font-bold text-primary-600 text-sm shrink-0">
+          {room.tenant.full_name.charAt(0)}
+        </div>
+        <div className="min-w-0">
+          <p className="font-bold text-sm text-gray-700 truncate">{room.tenant.full_name}</p>
+          <p className="text-xs text-gray-400">{room.tenant.phone}</p>
+        </div>
+      </div>
+    )
+  }
+  return <p className="text-xs text-gray-300 italic text-center py-1">Chưa có khách thuê</p>
+}
+
+function TenantRow({ entry }: { entry: RoomTenantEntry }) {
+  return (
+    <div className="flex items-center gap-2">
+      <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center font-bold text-primary-600 text-sm shrink-0">
+        {entry.user.full_name.charAt(0)}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="font-bold text-sm text-gray-700 truncate">{entry.user.full_name}</p>
+        <p className="text-xs text-gray-400 truncate">{entry.user.phone}</p>
+      </div>
+      {entry.is_primary && (
+        <span className="text-[10px] font-bold px-2 py-0.5 bg-primary-500 text-white rounded-full shrink-0">
+          Đại diện
+        </span>
+      )}
     </div>
   )
 }

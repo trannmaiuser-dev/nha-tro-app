@@ -154,3 +154,58 @@ Nhưng thực tế:
 **Quyết định:** Verify bằng `git stash` → build vẫn fail cùng error → confirm pre-existing env issue. Accept TypeScript check (`tsc --noEmit` exit 0) là gate đủ cho Phase B.
 
 **Lý do:** Build static prerender cần Supabase env. Code Phase B compile sạch. Vấn đề env nằm ngoài scope T-016.
+
+---
+
+# Phase C (Session C+D) — 2026-05-16
+
+## D14 — Tenant home thực tế ở `app/dashboard/page.tsx`, không phải `app/tenant/home/`
+
+**Tình huống:** Prompt yêu cầu sửa `app/tenant/home/page.tsx`. Nhưng folder `app/tenant/` chỉ có `change-password`, `guests`, `move-out`, `payments`, `profile`. Tenant entry point thực tế là `app/dashboard/page.tsx` → render `TenantDashboard` cho role=tenant.
+
+**Quyết định:** Sửa `app/dashboard/page.tsx` (server component query) + `components/TenantDashboard.tsx` (display).
+
+**Lý do:** Phải sửa file thật. Tạo path không có sẽ dead code.
+
+---
+
+## D15 — Tenant query phải qua `getRoomsByTenant`, KHÔNG `rooms.tenant_id`
+
+**Tình huống:** Code cũ `app/dashboard/page.tsx` query `from('rooms').eq('tenant_id', user.userId)` → chỉ tìm thấy phòng khi user là primary. Khách non-primary sẽ không thấy phòng → bị redirect/blank state.
+
+**Quyết định:** Dùng `getRoomsByTenant(userId, true)` để query qua `room_tenants` → tìm membership đầu tiên → fetch room details.
+
+**Lý do:** Bản chất multi-tenant. UC-02 yêu cầu mọi khách bình đẳng đều thấy phòng mình ở.
+
+---
+
+## D16 — `AddTenantDialog` cho phép phòng đã có người, chỉ loại 'maintenance'
+
+**Tình huống:** Code cũ filter `r.status === 'vacant'` → không cho thêm vào phòng occupied (chặn UC-02).
+
+**Quyết định:** Filter `r.status !== 'maintenance'`. Hiển thị suffix `(trống)` hoặc `(đang N người)`. Warning ≥ 6 người nhưng vẫn cho thêm. Loại maintenance vì không cho thuê.
+
+**Lý do:** UC-02 yêu cầu cho thêm vào phòng occupied. Chủ trọ tự quyết số người tối đa. Warning 6 là decision rule trong prompt.
+
+---
+
+## D17 — `RoomCard` backward compat: nhận cả `Room | RoomWithTenants`
+
+**Tình huống:** RoomCard có thể được dùng từ nhiều nơi. Một số chỗ có thể chưa được migrate sang `RoomWithTenants`.
+
+**Quyết định:** Type prop = `Room | RoomWithTenants`. Helper `TenantSection`:
+- Nếu `room.tenants` là array → render list multi-tenant
+- Nếu `room.tenant` (single) → fall back render 1 primary như cũ
+- Else "Chưa có khách thuê"
+
+**Lý do:** Không break callers cũ. Dần dần migrate sang shape mới khi tiện.
+
+---
+
+## D18 — Co-tenants section chỉ tên, KHÔNG SĐT (privacy)
+
+**Tình huống:** UC-02 nói các khách "bình đẳng". Nhưng có thể họ không quen nhau (mới chuyển vào). Hiển thị SĐT của người ở cùng → leak privacy.
+
+**Quyết định:** "Bạn đang ở cùng" chỉ hiển thị `full_name` + badge `Đại diện`. KHÔNG SĐT.
+
+**Lý do:** Khớp prompt decision rule "Trang tenant xem người cùng phòng — Chỉ hiện tên (KHÔNG SĐT) — privacy". Nếu cần liên lạc, dùng chat trong app.

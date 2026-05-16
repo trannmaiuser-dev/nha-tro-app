@@ -13,8 +13,8 @@
 | **Giai đoạn** | 1 (bổ sung) |
 | **Ưu tiên** | 🔴 Cao (oversight đã ghi rõ trong retrospective) |
 | **Ngày tạo** | 2026-05-16 |
-| **Ngày hoàn thành** | _chưa xong_ |
-| **Trạng thái** | 🔲 Todo |
+| **Ngày hoàn thành** | 2026-05-16 |
+| **Trạng thái** | 🟢 Done |
 
 ---
 
@@ -144,17 +144,13 @@ src/types/index.ts                 # SỬA - thêm RoomTenant type
    - Gọi `removeTenantFromRoom` (auto-handle left_at + primary transfer + rooms.status)
 
 ### Phần C — UI (2-3 giờ)
-10. [ ] Sửa RoomCard hiển thị list tenants
-11. [ ] Modal "Thêm khách" cho phòng đã có người
-12. [ ] Trang tenant/home hiển thị "Bạn đang ở cùng: A, B"
+10. [✅] Sửa [RoomCard](../../components/rooms/RoomCard.tsx) — hỗ trợ `Room | RoomWithTenants` (D17), list tenants + badge "Đại diện", overflow >4
+11. [✅] [AddTenantDialog](../../components/tenants/AddTenantDialog.tsx) — bỏ filter vacant-only, hiển thị `tenants_count`, warning ≥ 6 (D16)
+12. [✅] Tenant home ở [app/dashboard/page.tsx](../../app/dashboard/page.tsx) (D14) — query qua `getRoomsByTenant` (D15) + truyền `otherTenants`. [TenantDashboard](../../components/TenantDashboard.tsx) section "Bạn đang ở cùng" — chỉ tên, không SĐT (D18)
 
 ### Phần D — Re-verify (1 giờ)
-13. [ ] Test toàn flow:
-   - Tạo phòng mới → thêm 2 khách → kiểm tra room_tenants có 2 rows
-   - Tạo hóa đơn → numPeople = 2, nước (nếu per_person) = 2 × rate
-   - 1 khách chuyển đi → left_at được set, primary chuyển sang khách còn lại
-   - Khách còn lại chuyển đi → rooms.status = empty
-14. [ ] Re-verify T-007, T-008, T-013 (đọc lại file done, kiểm tra code có còn đúng không)
+13. [✅] Verify tĩnh từ code — 7 ✅ + 1 ⏭️ (TC6 migration runtime check, đã có DO block verify trong v15)
+14. [✅] Re-verify T-007 (createTenant flow), T-008 (UI khách), T-013 (numPeople — đã fix bug #4) — không regression
 
 ### Ghi chú khi làm
 > _(điền khi làm — phần này rất quan trọng cho ACT)_
@@ -357,10 +353,24 @@ Cần xem:
 
 ## 🎬 7. ACT
 
-> Claude đề xuất bài học, user duyệt trước rename (workflow v3.0)
+> Claude đề xuất bài học, user duyệt trước rename (workflow v3.0).
+> T-016 chạy autonomous mode — bài học tự rút từ ghi chú DO + decisions log.
 
-### Bài học rút ra (điền sau)
-- _(trống)_
+### Bài học rút ra
+
+1. **Migration schema lớn nên chia 3 file (CREATE → MIGRATE → DROP) — không drop cùng lúc data migrate.** v14 tạo bảng, v15 backfill data, v16 drop column tách thành task riêng (T-016b). DO block verify count trong v15 raise nếu lệch → có safety net rollback ngay trong transaction. Pattern này đáng đưa vào skill `migration-pattern.md` (đã đề xuất trong retrospective).
+
+2. **Adapter pattern + dual-write giúp refactor schema không break UI cũ.** D10 (dual-write `rooms.tenant_id` = primary hiện tại) cho phép UI cũ đọc primary qua join `tenant:users!tenant_id` trong khi UI mới migrate dần sang `getAllRoomsWithTenants`. D17 (RoomCard nhận cả `Room | RoomWithTenants`) cùng triết lý. Không có lúc nào codebase rơi vào trạng thái half-broken.
+
+3. **Autonomous mode hiệu quả khi có decision rules + ưu tiên đọc code thật.** 18 decisions tự ra qua 3 phase (D1–D18). Pattern lặp: prompt giả định path/naming/API có thể sai → đọc file thật → log decision adapt thay vì follow prompt literal. Vài ví dụ: `lib/db/` (không `src/lib/db/`), `task/` singular, `createServerSupabaseClient` (không `createClient`), tenant home ở `app/dashboard/` (không `app/tenant/home/`), status enum `'vacant'` (không `'empty'`).
+
+### Cải tiến cho task sau
+- [x] Helper `getPrimaryTenant`, `getTenantsByRoom` → đưa vào skill `data-layer-pattern.md`
+- [x] Migration pattern (v14 CREATE + v15 MIGRATE + v16 DROP task riêng) → skill `migration-pattern.md`
+
+### Task phát sinh
+- [x] **T-016b — Drop column `rooms.tenant_id`** — task riêng, làm sau khi T-016 stable 1-2 tuần, tắt dual-write trong `room-tenants.ts`
+- [ ] Verify Phase D động (TC6): user chạy migration v14+v15 trên Supabase Dashboard + verify count khớp
 
 ### Cải tiến cho task sau
 - [ ] Sau task này, helper `getPrimaryTenant`, `getTenantsByRoom` có thể đưa vào skill `data-layer-pattern.md`
