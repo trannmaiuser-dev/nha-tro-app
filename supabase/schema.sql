@@ -51,6 +51,18 @@ CREATE TABLE IF NOT EXISTS notifications (
   created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- ─── Push Subscriptions ────────────────────────────────────
+-- One row per device (endpoint is unique per device)
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  endpoint   TEXT NOT NULL UNIQUE,
+  p256dh     TEXT NOT NULL,
+  auth       TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_push_subs_user ON push_subscriptions(user_id);
+
 -- ─── Payments ───────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS payments (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -63,6 +75,20 @@ CREATE TABLE IF NOT EXISTS payments (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- ─── Messages ───────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS messages (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  sender_id   UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  receiver_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  content     TEXT,
+  image_url   TEXT,
+  is_read     BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_messages_recv ON messages(receiver_id, is_read);
+CREATE INDEX IF NOT EXISTS idx_messages_conv ON messages(sender_id, receiver_id, created_at);
+ALTER TABLE messages DISABLE ROW LEVEL SECURITY;
+
 -- ─── Indexes ────────────────────────────────────────────────
 CREATE INDEX IF NOT EXISTS idx_rooms_tenant     ON rooms(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_notifs_receiver  ON notifications(receiver_id);
@@ -71,10 +97,12 @@ CREATE INDEX IF NOT EXISTS idx_payments_room    ON payments(room_id);
 
 -- ─── Row Level Security ─────────────────────────────────────
 -- Disable RLS on all tables (we use service_role key from API routes)
-ALTER TABLE users          DISABLE ROW LEVEL SECURITY;
-ALTER TABLE rooms          DISABLE ROW LEVEL SECURITY;
-ALTER TABLE notifications  DISABLE ROW LEVEL SECURITY;
-ALTER TABLE payments       DISABLE ROW LEVEL SECURITY;
+ALTER TABLE users              DISABLE ROW LEVEL SECURITY;
+ALTER TABLE rooms              DISABLE ROW LEVEL SECURITY;
+ALTER TABLE notifications      DISABLE ROW LEVEL SECURITY;
+ALTER TABLE payments           DISABLE ROW LEVEL SECURITY;
+ALTER TABLE push_subscriptions DISABLE ROW LEVEL SECURITY;
+ALTER TABLE messages           DISABLE ROW LEVEL SECURITY;
 
 -- ============================================================
 -- SEED DATA — Xóa và tạo lại dữ liệu mẫu
