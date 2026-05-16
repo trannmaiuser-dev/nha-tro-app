@@ -294,4 +294,9 @@ export interface AppSetting<T = unknown> {
 }
 
 // ─── Multi-tenant (T-016 — UC-02) ─────────────────────────
-export type { RoomTenant, RoomTenantWithDetails } from './room-tenant'
+export type {
+  RoomTenant,
+  RoomTenantWithDetails,
+  RoomTenantEntry,
+  RoomWithTenants,
+} from './room-tenant'

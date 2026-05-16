@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { removeTenantFromRoom } from '@/lib/db/room-tenants'
 import type { MoveRequest } from '@/types'
 
 export async function createMoveRequest(
@@ -87,8 +88,12 @@ export async function approveMoveRequest(requestId: string, reviewerId: string):
   // Cập nhật tenant status → moved_out
   await sb.from('users').update({ tenant_status: 'moved_out' }).eq('id', req.user_id)
 
-  // Xóa khách khỏi phòng và kiểm tra phòng còn ai không
-  await sb.from('rooms').update({ tenant_id: null, status: 'vacant' }).eq('id', req.room_id)
+  // T-016 Phase B: dùng room_tenants thay vì set rooms.tenant_id=null trực tiếp.
+  // removeTenantFromRoom xử lý:
+  //   - set left_at trong room_tenants (không xóa row)
+  //   - chuyển primary cho người ở lâu nhất (nếu cần)
+  //   - sync rooms.tenant_id + status ('vacant' khi phòng trống, 'occupied' khi còn người)
+  await removeTenantFromRoom(req.room_id, req.user_id)
 
   // Gửi thông báo cho khách
   await sb.from('notifications').insert({

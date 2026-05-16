@@ -77,3 +77,80 @@ Ngày: 2026-05-16 · Phase A · Session A
 **Quyết định:** Dùng `task/todo/todo.016-multi-tenant.md` (path thật).
 
 **Lý do:** Verify bằng `ls`: folder tên `task` (singular).
+
+---
+
+# Phase B (Session B) — 2026-05-16
+
+## D8 — Confirm D4: db layer throw, không tạo `Result<T>`
+
+**Tình huống:** Prompt Session B mã mẫu dùng `Promise<Result<RoomTenant>>` với import từ `@/lib/types/action-result`. Prompt cũng ghi rõ "Adapt theo convention thật của project".
+
+**Quyết định:** Implement 6 hàm room-tenants.ts với throw pattern (consistent D4 từ Session A). Trả type concrete.
+
+**Lý do:**
+- `lib/types/action-result.ts` vẫn chưa tồn tại
+- Tất cả db file khác (rooms, tenants, guests, invoices, move-requests) đều throw → giữ nhất quán
+- Result<T> dành cho server-action layer (sẽ tạo ở Module 3)
+
+---
+
+## D9 — Supabase client + status enum đúng convention thật
+
+**Tình huống:** Prompt code mẫu dùng:
+- `createClient()` from `@/lib/supabase/server`
+- `rooms.status = 'empty'`
+
+Nhưng thực tế:
+- Project dùng `createServerSupabaseClient` from `@/lib/supabase-server` (không có folder `supabase/`)
+- Schema CHECK constraint: `status IN ('vacant', 'occupied', 'maintenance')` — KHÔNG có `'empty'`
+
+**Quyết định:** Dùng `createServerSupabaseClient` + `'vacant'`.
+
+**Lý do:** Code mẫu trong prompt sai. Dùng `'empty'` sẽ FAIL constraint check ngay khi DB.
+
+---
+
+## D10 — Dual-write `rooms.tenant_id` cho backward compat
+
+**Tình huống:** UI cũ + lib/db cũ (getAllRooms, deleteRoom, searchRoomsByTenantName...) đọc `rooms.tenant_id` để biết primary. Drop column này sẽ break UI ngay → để Phase C sau.
+
+**Quyết định:** Phase B dual-write:
+- `addTenantToRoom(isPrimary=true)` → sync `rooms.tenant_id = userId`, status = 'occupied'
+- `addTenantToRoom(isPrimary=false)` → chỉ update status, KHÔNG đụng tenant_id
+- `removeTenantFromRoom`:
+  - Nếu rời là primary → next primary auto-promote, sync `rooms.tenant_id` sang user mới
+  - Nếu phòng trống → `tenant_id = null`, status = 'vacant'
+- `setPrimaryTenant` → sync `rooms.tenant_id` sang primary mới
+
+**Lý do:** Single source of truth (room_tenants) cho membership mới, nhưng `rooms.tenant_id` luôn = primary hiện tại → code legacy không vỡ. T-016b sẽ drop column khi UI refactor xong.
+
+---
+
+## D11 — `createTenantAccount` không overwrite primary nếu phòng đã có người
+
+**Tình huống:** Code cũ unconditionally set `rooms.tenant_id = newUser.id` khi tạo khách. Trong multi-tenant world, nếu phòng đã có primary thì overwrite sẽ "cướp" cờ primary của họ.
+
+**Quyết định:** Count active room_tenants trước. Nếu = 0 → user mới là primary (isPrimary=true). Nếu > 0 → user mới join nhưng KHÔNG primary (isPrimary=false), primary cũ giữ nguyên.
+
+**Lý do:** Đúng nghiệp vụ UC-02. Admin có thể `setPrimaryTenant` về sau nếu muốn đổi.
+
+---
+
+## D12 — Không touch `getTenantsByRoomId` cũ trong tenants.ts
+
+**Tình huống:** `lib/db/tenants.ts::getTenantsByRoomId` hiện tại trả 0-or-1 tenant qua `rooms.tenant_id` subquery. Sai semantic cho multi-tenant.
+
+**Quyết định:** Giữ nguyên trong Phase B. UI mới sẽ dùng `getAllRoomsWithTenants` hoặc `getTenantsByRoom` từ `lib/db/room-tenants`. UI cũ tiếp tục đọc primary qua hàm này.
+
+**Lý do:** Đổi return type sẽ break callers. Phase C refactor UI sẽ swap import sang hàm mới, rồi T-016b xóa hàm cũ.
+
+---
+
+## D13 — Build prerender fail là vấn đề env, không phải code
+
+**Tình huống:** `npm run build` fail tại prerender step với "Error: supabaseUrl is required". Worktree này không có `.env.local`.
+
+**Quyết định:** Verify bằng `git stash` → build vẫn fail cùng error → confirm pre-existing env issue. Accept TypeScript check (`tsc --noEmit` exit 0) là gate đủ cho Phase B.
+
+**Lý do:** Build static prerender cần Supabase env. Code Phase B compile sạch. Vấn đề env nằm ngoài scope T-016.

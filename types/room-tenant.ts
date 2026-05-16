@@ -1,4 +1,4 @@
-import type { User } from './index'
+import type { Room, User } from './index'
 
 /**
  * Quan hệ nhiều-nhiều giữa rooms và users (UC-02).
@@ -19,4 +19,18 @@ export interface RoomTenant {
 export interface RoomTenantWithDetails extends RoomTenant {
   user?: Pick<User, 'id' | 'full_name' | 'phone'> | null
   room?: { id: string; name: string } | null
+}
+
+/** 1 entry tenant lồng trong Room (subset của RoomTenantWithDetails, đủ cho card UI). */
+export interface RoomTenantEntry {
+  id: string
+  user_id: string
+  joined_at: string
+  is_primary: boolean
+  user: Pick<User, 'id' | 'full_name' | 'phone'>
+}
+
+/** Room kèm danh sách tất cả tenants active (Phase B: dùng cho UI multi-tenant). */
+export interface RoomWithTenants extends Room {
+  tenants: RoomTenantEntry[]
 }

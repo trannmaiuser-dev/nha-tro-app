@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs'
 import { randomBytes } from 'crypto'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { addTenantToRoom } from '@/lib/db/room-tenants'
 import type { User, TenantProfile, EmergencyContact, TenantBankAccount } from '@/types'
 
 // ─── Kiểu dùng nội bộ ────────────────────────────────────────
@@ -52,8 +53,17 @@ export async function createTenantAccount(
 
   if (error) throw new Error('Không thể tạo tài khoản: ' + error.message)
 
-  // Gán phòng cho khách
-  await sb.from('rooms').update({ tenant_id: newUser.id, status: 'occupied' }).eq('id', roomId)
+  // Gán phòng cho khách (T-016 Phase B):
+  // - Insert vào room_tenants. Nếu phòng đang trống → user mới là primary
+  //   (addTenantToRoom dual-write rooms.tenant_id + status='occupied' khi isPrimary=true).
+  // - Nếu phòng đã có người → user mới chỉ join, primary cũ giữ nguyên.
+  const { count: activeCount } = await sb
+    .from('room_tenants')
+    .select('id', { count: 'exact', head: true })
+    .eq('room_id', roomId)
+    .is('left_at', null)
+  const isPrimary = (activeCount ?? 0) === 0
+  await addTenantToRoom(roomId, newUser.id, isPrimary)
 
   // Tạo bản ghi profile trống
   await sb.from('tenant_profiles').insert({ user_id: newUser.id, profile_status: 'draft' })

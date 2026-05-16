@@ -134,16 +134,14 @@ src/types/index.ts                 # SỬA - thêm RoomTenant type
 4. [✅] **CẢNH BÁO USER:** xem [supabase/migrations-v14-v15-INSTRUCTIONS.md](../../supabase/migrations-v14-v15-INSTRUCTIONS.md)
 
 ### Phần B — Data layer (2-3 giờ)
-5. [ ] Tạo `lib/db/room-tenants.ts` với 6 hàm + Zod schema
-6. [ ] Sửa `lib/db/rooms.ts` — join room_tenants
-7. [ ] Sửa `lib/db/tenants.ts` — createTenant gọi addTenantToRoom thay vì set rooms.tenant_id
-8. [ ] **QUAN TRỌNG** — sửa `lib/db/invoices.ts::calculateInvoiceForRoom`:
+5. [✅] Tạo `lib/db/room-tenants.ts` với 6 hàm (throw pattern theo project convention — xem decisions D8)
+6. [✅] Sửa `lib/db/rooms.ts` — thêm `getAllRoomsWithTenants` + `getRoomByIdWithTenants` (giữ hàm cũ cho backward compat)
+7. [✅] Sửa `lib/db/tenants.ts` — `createTenantAccount` gọi `addTenantToRoom` (primary nếu phòng trống)
+8. [✅] **QUAN TRỌNG** — sửa `lib/db/invoices.ts::calculateInvoiceForRoom`:
    - Thay logic `roomWithTenant?.tenant_id ? 1 : 0` (sai)
-   - Bằng: `numPeople = (await getTenantsByRoom(roomId)).length`
-9. [ ] Sửa `lib/db/move-requests.ts::approveMoveRequest`:
-   - Set left_at thay vì xóa
-   - Nếu primary rời → tự chọn primary mới
-   - Update rooms.status nếu phòng rỗng
+   - Bằng: `numPeople = (await getTenantsByRoom(roomId, true)).length` ✓
+9. [✅] Sửa `lib/db/move-requests.ts::approveMoveRequest`:
+   - Gọi `removeTenantFromRoom` (auto-handle left_at + primary transfer + rooms.status)
 
 ### Phần C — UI (2-3 giờ)
 10. [ ] Sửa RoomCard hiển thị list tenants
@@ -182,6 +180,28 @@ src/types/index.ts                 # SỬA - thêm RoomTenant type
 - D7: `task/` (singular) — actual layout
 
 **User cần làm thủ công:** chạy migration v14 + v15 trên Supabase theo INSTRUCTIONS.md trước khi sang Phase B.
+
+## Phase B — 2026-05-16 (Session B, autonomous mode)
+
+**Đã làm:**
+- Implement [lib/db/room-tenants.ts](../../lib/db/room-tenants.ts) — 6 hàm: `addTenantToRoom`, `removeTenantFromRoom`, `getTenantsByRoom`, `getRoomsByTenant`, `getPrimaryTenant`, `setPrimaryTenant`. Throw pattern + dual-write `rooms.tenant_id` cho primary (D10)
+- Thêm types: `RoomTenantEntry`, `RoomWithTenants` trong [types/room-tenant.ts](../../types/room-tenant.ts), re-export ở `types/index.ts`
+- [lib/db/rooms.ts](../../lib/db/rooms.ts) — thêm `getAllRoomsWithTenants` + `getRoomByIdWithTenants` (giữ hàm cũ cho legacy)
+- [lib/db/tenants.ts](../../lib/db/tenants.ts) — `createTenantAccount` gọi `addTenantToRoom` (count active trước để xác định isPrimary — D11)
+- [lib/db/invoices.ts](../../lib/db/invoices.ts) — fix **retrospective bug #4**: `numPeople = activeTenants.length` (xóa dòng `roomWithTenant?.tenant_id ? 1 : 0`)
+- [lib/db/move-requests.ts](../../lib/db/move-requests.ts) — `approveMoveRequest` gọi `removeTenantFromRoom` (auto-handle left_at, primary transfer, status)
+
+**Verification:**
+- `npx tsc --noEmit` → exit 0 ✓
+- `npm run build` → fail prerender vì worktree thiếu `.env.local` — verified bằng `git stash` test là pre-existing env issue, không phải code Phase B (D13)
+
+**Decisions thêm (xem [memory/t016-decisions.md](../../memory/t016-decisions.md)):**
+- D8: Confirm db layer throw, không tạo Result<T>
+- D9: `createServerSupabaseClient` (không phải `createClient`) + status `'vacant'` (không phải `'empty'`)
+- D10: Dual-write `rooms.tenant_id` để giữ backward compat
+- D11: `createTenantAccount` không overwrite primary khi phòng đã có người
+- D12: Không touch `getTenantsByRoomId` cũ — Phase C sẽ swap UI sang `getAllRoomsWithTenants`
+- D13: Build prerender fail là env issue (pre-existing), accept tsc check là gate đủ
 
 ---
 

@@ -1,6 +1,7 @@
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { getAllSettings } from '@/lib/db/settings'
 import { getMeterReadingByRoomMonth } from '@/lib/db/meter-readings'
+import { getTenantsByRoom } from '@/lib/db/room-tenants'
 import type {
   Invoice,
   InvoiceExtraItem,
@@ -70,17 +71,11 @@ export async function calculateInvoiceForRoom(
   if (roomRes.error || !roomRes.data) throw new Error('Không tìm thấy phòng')
   const room = roomRes.data as { id: string; name: string; price: number; electricity_rate: number | null }
 
-  // Đếm số tenant đang ở phòng (cần cho per_person và over_capacity)
-  const { count: peopleCount } = await sb
-    .from('users')
-    .select('id', { count: 'exact', head: true })
-    .eq('role', 'tenant')
-  // NOTE: Schema hiện tại chỉ link 1 tenant_id qua rooms — chưa hỗ trợ nhiều người/phòng.
-  // Tạm dùng count = 1 nếu phòng có tenant, 0 nếu trống. Sẽ refactor khi có bảng room_tenants.
-  const { data: roomWithTenant } = await sb
-    .from('rooms').select('tenant_id').eq('id', roomId).maybeSingle()
-  const numPeople = roomWithTenant?.tenant_id ? 1 : 0
-  void peopleCount
+  // Số người đang ở phòng = số active room_tenants (T-016 Phase B fix retrospective bug #4).
+  // Trước đây dùng tenant_id ? 1 : 0 — sai khi phòng có nhiều khách → tiền nước per_person
+  // và phụ phí quá người bị tính thiếu.
+  const activeTenants = await getTenantsByRoom(roomId, true)
+  const numPeople = activeTenants.length
 
   const warnings: string[] = []
 
