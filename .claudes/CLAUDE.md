@@ -117,7 +117,7 @@ Nếu cần component mới chưa có → tạo trong `components/ui/` để tá
 
 | # | Module | Route | Giai đoạn | Trạng thái | Tiến độ |
 |---|---|---|---|---|---|
-| 1 | Quản lý phòng & khách thuê | `/admin/rooms`, `/admin/tenants` | 1 | 🟢 Done (T-001 → T-010 + T-016 + T-016c hotfix) | T-016b drop column còn pending sau stable 1-2 tuần |
+| 1 | Quản lý phòng & khách thuê | `/admin/rooms`, `/admin/tenants` | 1 | 🟢 Done (T-001 → T-010 + T-016/c/d hotfix) | T-016b drop column còn pending sau stable 1-2 tuần |
 | 2 | Thu chi & hóa đơn | `/admin/finance` | 2 | 🟡 Cơ bản done, chờ T-017 cảnh báo nợ | T-011 → T-015 + T-014b done (notification đầy đủ) |
 | 3 | Giấy tờ | `/admin/documents` | 3 | 🔲 Chưa làm | — |
 | 4 | Camera AI | `/admin/camera` | 5 | 🔲 Chưa làm | — |

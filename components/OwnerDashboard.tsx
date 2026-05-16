@@ -2,20 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import type { AuthPayload } from '@/types'
+import type { AuthPayload, RoomWithTenants } from '@/types'
 import CreateTenantModal from '@/components/CreateTenantModal'
 import { MessageCircle, Bell, LogOut, Building2, User, KeyRound } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-
-interface Room {
-  id: string
-  name: string
-  floor: number
-  price: number
-  status: string
-  tenant_id: string | null
-  tenant?: { id: string; full_name: string; phone: string } | null
-}
 
 interface Payment {
   id: string
@@ -36,7 +26,7 @@ interface Notification {
 
 interface Props {
   user: AuthPayload
-  rooms: Room[]
+  rooms: RoomWithTenants[]
   payments: Payment[]
   notifications: Notification[]
 }
@@ -71,15 +61,17 @@ export default function OwnerDashboard({ user, rooms, payments, notifications }:
       .sort((a, b) => new Date(b.due_date).getTime() - new Date(a.due_date).getTime())[0]
   }
 
-  async function sendReminder(room: Room) {
-    if (!room.tenant_id) return
+  async function sendReminder(room: RoomWithTenants) {
+    // T-016d Bug B: gửi nhắc tới primary tenant (D24)
+    const primary = room.tenants.find(t => t.is_primary)
+    if (!primary) return
     setSending(room.id)
     try {
       await fetch('/api/notifications/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          receiverId: room.tenant_id,
+          receiverId: primary.user_id,
           type: 'payment_reminder',
           message: `Nhắc thanh toán tiền phòng ${room.name} tháng này nhé! 💰`,
         }),
@@ -194,35 +186,60 @@ export default function OwnerDashboard({ user, rooms, payments, notifications }:
                     <RoomBadge status={room.status} />
                   </div>
 
-                  {room.status === 'occupied' && room.tenant && (
-                    <>
-                      <div className="flex items-center gap-2 mb-3 bg-gray-50 rounded-xl px-3 py-2">
-                        <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center text-sm font-bold text-primary-600">
-                          {room.tenant.full_name.charAt(0)}
+                  {/* T-016d Bug B: loop tenants[] thay vì single tenant */}
+                  {room.status === 'occupied' && room.tenants.length > 0 && (() => {
+                    const primary = room.tenants.find(t => t.is_primary)
+                    const visible = room.tenants.slice(0, 4)
+                    const overflow = room.tenants.length - visible.length
+                    return (
+                      <>
+                        <div className="space-y-2 mb-3">
+                          {visible.map(t => (
+                            <div key={t.id} className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2">
+                              <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center text-sm font-bold text-primary-600 shrink-0">
+                                {t.user.full_name.charAt(0)}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-bold text-sm text-gray-700 truncate">{t.user.full_name}</p>
+                                <p className="text-xs text-gray-400">{t.user.phone}</p>
+                              </div>
+                              {t.is_primary && (
+                                <span className="text-[10px] font-bold px-2 py-0.5 bg-primary-500 text-white rounded-full shrink-0">
+                                  Đại diện
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                          {overflow > 0 && (
+                            <p className="text-xs text-gray-500 italic pl-10">
+                              và {overflow} người khác
+                            </p>
+                          )}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-bold text-sm text-gray-700 truncate">{room.tenant.full_name}</p>
-                          <p className="text-xs text-gray-400">{room.tenant.phone}</p>
+
+                        <div className="flex items-center justify-end mb-3">
+                          <PaymentBadge status={isPaid ? 'paid' : 'pending'} dueDate={payment?.due_date} />
                         </div>
-                        <PaymentBadge status={isPaid ? 'paid' : 'pending'} dueDate={payment?.due_date} />
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => sendReminder(room)}
-                          disabled={sending === room.id}
-                          className="flex-1 bg-accent-50 border border-accent-100 text-accent-600 font-bold rounded-xl py-2.5 text-sm active:scale-95 transition-all disabled:opacity-50"
-                        >
-                          {sending === room.id ? '⏳ Đang gửi...' : '🔔 Nhắc tiền'}
-                        </button>
-                        <button
-                          onClick={() => router.push(`/profile/${room.tenant_id}`)}
-                          className="flex-1 bg-primary-50 border border-primary-100 text-primary-600 font-bold rounded-xl py-2.5 text-sm active:scale-95 transition-all"
-                        >
-                          📋 Hồ sơ
-                        </button>
-                      </div>
-                    </>
-                  )}
+
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => sendReminder(room)}
+                            disabled={sending === room.id || !primary}
+                            className="flex-1 bg-accent-50 border border-accent-100 text-accent-600 font-bold rounded-xl py-2.5 text-sm active:scale-95 transition-all disabled:opacity-50"
+                          >
+                            {sending === room.id ? '⏳ Đang gửi...' : '🔔 Nhắc tiền'}
+                          </button>
+                          <button
+                            onClick={() => { if (primary) router.push(`/profile/${primary.user_id}`) }}
+                            disabled={!primary}
+                            className="flex-1 bg-primary-50 border border-primary-100 text-primary-600 font-bold rounded-xl py-2.5 text-sm active:scale-95 transition-all disabled:opacity-50"
+                          >
+                            📋 Hồ sơ
+                          </button>
+                        </div>
+                      </>
+                    )
+                  })()}
 
                   {room.status === 'vacant' && (
                     <button

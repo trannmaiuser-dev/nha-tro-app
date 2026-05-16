@@ -1,11 +1,21 @@
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { getAllRoomsWithTenants } from '@/lib/db/rooms'
 import { getRoomsByTenant, getTenantsByRoom } from '@/lib/db/room-tenants'
 import OwnerDashboard from '@/components/OwnerDashboard'
 import TenantDashboard from '@/components/TenantDashboard'
 import PushNotificationSetup from '@/components/PushNotificationSetup'
-import type { Payment } from '@/types'
+import type { Payment, RoomWithTenants } from '@/types'
+
+type TenantRoomShape = {
+  id:         string
+  name:       string
+  floor:      number
+  price:      number
+  status:     string
+  tenant_id:  string | null
+}
 
 export default async function DashboardPage() {
   const user = await getCurrentUser()
@@ -13,16 +23,15 @@ export default async function DashboardPage() {
 
   const sb = createServerSupabaseClient()
 
-  // Fetch rooms (owner sees all, tenant sees own — T-016 Phase C: qua room_tenants)
-  // Tenant có thể là non-primary; query qua room_tenants để vẫn tìm được phòng.
-  let rooms: Array<{ id: string; name: string; floor: number; price: number; status: string; tenant_id: string | null }> = []
+  // Fetch rooms theo role.
+  // Owner: T-016d Bug A fix — dùng getAllRoomsWithTenants để có tenants[] (multi-tenant render).
+  // Tenant (có thể non-primary): query qua room_tenants để vẫn tìm được phòng.
+  let ownerRooms: RoomWithTenants[]   = []
+  let tenantRoom: TenantRoomShape | null = null
   let otherTenants: Array<{ user_id: string; full_name: string; is_primary: boolean }> = []
+
   if (user.role === 'owner') {
-    const { data } = await sb
-      .from('rooms')
-      .select('*, tenant:users!tenant_id(id, full_name, phone)')
-      .order('name')
-    rooms = data ?? []
+    ownerRooms = await getAllRoomsWithTenants()
   } else {
     const memberships = await getRoomsByTenant(user.userId, true)
     if (memberships.length > 0 && memberships[0].room) {
@@ -32,7 +41,7 @@ export default async function DashboardPage() {
         .select('id, name, floor, price, status, tenant_id')
         .eq('id', roomId)
         .single()
-      if (roomRow) rooms = [roomRow]
+      if (roomRow) tenantRoom = roomRow as TenantRoomShape
 
       // Lấy danh sách người ở cùng (chỉ tên — privacy, không lộ SĐT)
       const allTenants = await getTenantsByRoom(roomId, true)
@@ -47,7 +56,9 @@ export default async function DashboardPage() {
   }
 
   // Fetch latest payment per room
-  const roomIds = (rooms as { id: string }[]).map(r => r.id)
+  const roomIds = user.role === 'owner'
+    ? ownerRooms.map(r => r.id)
+    : (tenantRoom ? [tenantRoom.id] : [])
   let payments: Payment[] = []
   if (roomIds.length > 0) {
     const { data } = await sb
@@ -72,14 +83,14 @@ export default async function DashboardPage() {
       {user.role === 'owner' ? (
         <OwnerDashboard
           user={user}
-          rooms={rooms}
+          rooms={ownerRooms}
           payments={payments}
           notifications={notifications ?? []}
         />
       ) : (
         <TenantDashboard
           user={user}
-          room={rooms[0] ?? null}
+          room={tenantRoom}
           payments={payments}
           notifications={notifications ?? []}
           otherTenants={otherTenants}

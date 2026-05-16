@@ -267,3 +267,38 @@ Nhưng thực tế:
 **Quyết định:** (b). Đổi `fetch('/api/owner/create-tenant', ...)` → `createTenantAction({ phone, room_id })`. Validate phone 10 chữ số bắt đầu '0' để khớp schema.
 
 **Lý do:** UX hai modal khác nhau (CreateTenantModal: quick from owner home, AddTenantDialog: full form từ admin/tenants). Bảo toàn 2 UX surface. Backend giờ unified (cùng đi qua server action) → không drift logic.
+
+---
+
+# T-016d (Hotfix dashboard UI + modal refresh) — 2026-05-16
+
+## D24 — sendReminder gửi tới primary tenant (T-016d)
+
+**Tình huống:** OwnerDashboard có nút "Nhắc tiền". Code cũ `receiverId: room.tenant_id` (đọc trực tiếp cột legacy). Multi-tenant cần quyết định: nhắc tất cả hay chỉ 1 người?
+
+**Quyết định:** Chỉ gửi notification tới primary tenant (`tenants.find(t => t.is_primary).user_id`). Disable nút nếu không có primary.
+
+**Lý do:** Trùng nguyên tắc UC-02: chủ ghi tổng, primary chịu trách nhiệm thu/chia với khách cùng phòng. Tránh spam: 4 người 1 phòng nhận 4 notification giống nhau là phiền.
+
+---
+
+## D25 — Tách `ownerRooms` (RoomWithTenants[]) vs `tenantRoom` (subset) trong dashboard page (T-016d)
+
+**Tình huống:** Owner và tenant cần shape Room khác nhau. Owner cần `tenants[]` cho UI multi-tenant render. Tenant chỉ cần phòng đơn cộng `otherTenants` riêng.
+
+**Quyết định:** Hai biến tách bạch (`let ownerRooms: RoomWithTenants[] = []` và `let tenantRoom: TenantRoomShape | null = null`). `roomIds` derive theo role. JSX nhánh truyền vào component tương ứng.
+
+**Lý do:** Đơn giản hơn so với union type `RoomWithTenants[] | TenantRoomShape[]` (TS tricky với union arrays). Mỗi nhánh chỉ gán biến của mình. Không có risk leak data sang component sai.
+
+---
+
+## D26 — Defer `router.refresh()` đến lúc đóng modal (T-016d Bug C)
+
+**Tình huống:** `router.refresh()` ngay sau setResult làm /dashboard re-fetch → parent re-render với `vacantRooms` ngắn hơn (đã loại P102) → CreateTenantModal sống nhưng state initial của `roomId = vacantRooms[0]?.id` không tự cập nhật + cảm giác "modal nháy". User mất login link trước khi kịp copy.
+
+**Quyết định:** Pattern "refresh on close":
+- `setHasCreated(true)` sau setResult thành công, KHÔNG refresh ngay
+- `handleClose()` wrapper: nếu `hasCreated` → `router.refresh()` → rồi `onClose()`
+- Tất cả 4 onClick (backdrop, X, Hủy, Đóng) gọi `handleClose` thay vì `onClose`
+
+**Lý do:** UX: user xem + copy thông tin xong mới đóng → refresh đồng bộ trang. Đồng thời nếu user hủy form (chưa tạo) thì không refresh thừa.

@@ -26,6 +26,15 @@ export default function CreateTenantModal({ vacantRooms, onClose }: Props) {
   const [error,   setError]   = useState('')
   const [result,  setResult]  = useState<Result | null>(null)
   const [copied,  setCopied]  = useState(false)
+  const [hasCreated, setHasCreated] = useState(false)
+
+  // T-016d Bug C: chỉ refresh /dashboard sau khi user đã đóng modal
+  // (xem login link + copy xong). Refresh ngay sau setResult sẽ làm parent
+  // re-render với vacantRooms mới → success screen mất nội dung.
+  function handleClose() {
+    if (hasCreated) router.refresh()
+    onClose()
+  }
 
   const roomOptions = vacantRooms.map(r => ({
     value: r.id,
@@ -55,7 +64,8 @@ export default function CreateTenantModal({ vacantRooms, onClose }: Props) {
         loginLink:    res.data.loginLink,
         expiresAt:    res.data.expiresAt,
       })
-      router.refresh()
+      setHasCreated(true)
+      // KHÔNG gọi router.refresh() ở đây — dồn về handleClose (Bug C fix)
     } finally {
       setLoading(false)
     }
@@ -72,7 +82,7 @@ export default function CreateTenantModal({ vacantRooms, onClose }: Props) {
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)' }}
-      onClick={onClose}
+      onClick={handleClose}
     >
       {/* Sheet — scrollable, max 85dvh so keyboard doesn't cover it */}
       <div
@@ -101,7 +111,7 @@ export default function CreateTenantModal({ vacantRooms, onClose }: Props) {
                   </div>
                 </div>
                 <button
-                  onClick={onClose}
+                  onClick={handleClose}
                   className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all"
                 >
                   <CloseIcon />
@@ -161,7 +171,7 @@ export default function CreateTenantModal({ vacantRooms, onClose }: Props) {
 
               {/* Actions */}
               <div className="flex gap-3 pt-1">
-                <button onClick={onClose} className="btn-ghost flex-1 py-3 text-sm">Hủy</button>
+                <button onClick={handleClose} className="btn-ghost flex-1 py-3 text-sm">Hủy</button>
                 <button
                   onClick={handleCreate}
                   disabled={loading || vacantRooms.length === 0}
@@ -215,7 +225,7 @@ export default function CreateTenantModal({ vacantRooms, onClose }: Props) {
               <button onClick={copyAll} className="btn-primary w-full text-sm">
                 {copied ? '✅ Đã copy!' : '📋 Copy toàn bộ thông tin'}
               </button>
-              <button onClick={onClose} className="btn-ghost w-full text-sm py-2.5">Đóng</button>
+              <button onClick={handleClose} className="btn-ghost w-full text-sm py-2.5">Đóng</button>
             </div>
           </>
         )}
