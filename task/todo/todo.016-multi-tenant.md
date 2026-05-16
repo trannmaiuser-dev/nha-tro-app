@@ -123,20 +123,15 @@ src/types/index.ts                 # SỬA - thêm RoomTenant type
 ## 🔨 2. DO
 
 ### Phần A — Schema (1-2 giờ)
-1. [ ] Đọc kỹ schema hiện tại `rooms` và `tenant_profiles`
-2. [ ] Viết SQL `migrations-v14.sql`:
+1. [✅] Đọc kỹ schema hiện tại `rooms` và `tenant_profiles`
+2. [✅] Viết SQL `migrations-v14.sql`:
    ```sql
    CREATE TABLE room_tenants (...)
    CREATE UNIQUE INDEX ... ON room_tenants(room_id, user_id) WHERE left_at IS NULL;
-   -- RLS policies
+   -- RLS DISABLED (project pattern — xem decisions.md D1)
    ```
-3. [ ] Viết SQL `migrations-v15.sql` migrate data:
-   ```sql
-   INSERT INTO room_tenants (room_id, user_id, joined_at, is_primary)
-   SELECT id, tenant_id, COALESCE(rented_at, created_at), true
-   FROM rooms WHERE tenant_id IS NOT NULL;
-   ```
-4. [ ] **CẢNH BÁO USER:** "Bạn chạy v14 + v15 trên Supabase Dashboard. Kiểm tra count(*) FROM room_tenants ≈ count(*) FROM rooms WHERE tenant_id IS NOT NULL"
+3. [✅] Viết SQL `migrations-v15.sql` migrate data + verification DO block
+4. [✅] **CẢNH BÁO USER:** xem [supabase/migrations-v14-v15-INSTRUCTIONS.md](../../supabase/migrations-v14-v15-INSTRUCTIONS.md)
 
 ### Phần B — Data layer (2-3 giờ)
 5. [ ] Tạo `lib/db/room-tenants.ts` với 6 hàm + Zod schema
@@ -166,7 +161,27 @@ src/types/index.ts                 # SỬA - thêm RoomTenant type
 ### Ghi chú khi làm
 > _(điền khi làm — phần này rất quan trọng cho ACT)_
 
-- _(trống)_
+## Phase A — 2026-05-16 (Session A, autonomous mode)
+
+**Đã làm:**
+- Tạo `supabase/migrations-v14.sql` — bảng `room_tenants` (6 cột) + 4 index (unique active, room_id, user_id, active filter) + RLS DISABLED + ROLLBACK block
+- Tạo `supabase/migrations-v15.sql` — migrate data từ `rooms.tenant_id` (is_primary=true, joined_at=created_at) + DO block verify count, raise nếu lệch + ROLLBACK block
+- Tạo `supabase/migrations-v14-v15-INSTRUCTIONS.md` — hướng dẫn chạy + verify + rollback
+- Tạo skeleton [lib/db/room-tenants.ts](../../lib/db/room-tenants.ts) — 6 hàm throw 'Not implemented' (impl Phase B)
+- Tạo [types/room-tenant.ts](../../types/room-tenant.ts) — interface `RoomTenant` + `RoomTenantWithDetails`
+- Re-export trong [types/index.ts](../../types/index.ts)
+- `npx tsc --noEmit` pass
+
+**Decisions (xem [memory/t016-decisions.md](../../memory/t016-decisions.md)):**
+- D1: RLS DISABLE (project pattern, không dùng admin/tenant policies như prompt)
+- D2: Path `lib/db/`, `types/` (no `src/` — actual layout)
+- D3: `joined_at` default = `rooms.created_at` (không có `rented_at`)
+- D4: Skeleton throw (không dùng `Result<T>` — file chưa tồn tại)
+- D5: Worktree push thẳng remote (feature/t016 đã checked-out ở worktree chính)
+- D6: Không tạo trigger auto-primary (handle ở app layer)
+- D7: `task/` (singular) — actual layout
+
+**User cần làm thủ công:** chạy migration v14 + v15 trên Supabase theo INSTRUCTIONS.md trước khi sang Phase B.
 
 ---
 
