@@ -20,7 +20,9 @@ nha-tro-app/
 ├── .claudes/
 │   ├── CLAUDE.md                  ← file này
 │   └── skills/
-│       ├── todo-workflow.md       ← quy trình PDCA + Requirement Check (v3.0)
+│       ├── todo-workflow.md       ← quy trình PDCA + Requirement Check (v3.1)
+│       ├── runtime-smoke-test.md  ← Phase E format chi tiết (v1.0)
+│       ├── debug-workflow.md      ← quy trình tự debug bug runtime (v1.0)
 │       ├── data-layer-pattern.md  ← (sẽ tạo trong Module 3)
 │       └── server-action-pattern.md ← (sẽ tạo trong Module 3)
 │
@@ -189,13 +191,16 @@ Mỗi task có file `tasks/todo/todo.XXX-ten-task.md` theo PDCA + Requirement Ch
 2. **DO** — code theo checklist, **GHI CHÚ KỸ** trong "Ghi chú khi làm"
 3. **CHECK** — self-check code quality
 4. **REQUIREMENT CHECK** — tự scan `memory/`, đối chiếu nghiệp vụ
-5. **VERIFY** — test cases (✅/❌/⏭️, không ⬜)
-6. **ACT** — Claude đề xuất bài học, user duyệt
-7. **RENAME** — đổi tên + auto-update bảng module trong CLAUDE.md
+5. **VERIFY** — test cases tĩnh (✅/❌/⏭️, không ⬜)
+6. **RUNTIME SMOKE TEST (Phase E)** ⭐ MỚI v3.1 — user test runtime cho task có UI/schema change. Xem `.claudes/skills/runtime-smoke-test.md`
+7. **ACT** — Claude đề xuất bài học, user duyệt
+8. **RENAME** — đổi tên + auto-update bảng module trong CLAUDE.md
 
 Khi xong: rename `todo.XXX-*.md` → `done.XXX-*.md`
 
-Xem chi tiết tại `.claudes/skills/todo-workflow.md` v3.0.
+Khi Phase E FAIL → dùng skill `.claudes/skills/debug-workflow.md` (1 debug session = 1 commit, task hậu tố T-XXXb/c/d).
+
+Xem chi tiết tại `.claudes/skills/todo-workflow.md` v3.1.
 
 ---
 
@@ -236,7 +241,9 @@ Xem chi tiết tại `.claudes/skills/todo-workflow.md` v3.0.
 | Loại | Vị trí | Khi nào |
 |---|---|---|
 | Context tổng | `.claudes/CLAUDE.md` | Mỗi session mới |
-| Quy trình PDCA | `.claudes/skills/todo-workflow.md` | Khi làm task |
+| Quy trình PDCA | `.claudes/skills/todo-workflow.md` (v3.1) | Khi làm task |
+| Phase E format | `.claudes/skills/runtime-smoke-test.md` (v1.0) | Khi viết Phase E cho task có UI change |
+| Debug bug runtime | `.claudes/skills/debug-workflow.md` (v1.0) | Khi Phase E fail, user paste prompt-debug-from-symptom |
 | Pattern data layer | `.claudes/skills/data-layer-pattern.md` | Khi code lib/db/ (sẽ có) |
 | Pattern server action | `.claudes/skills/server-action-pattern.md` | Khi code actions.ts (sẽ có) |
 | Yêu cầu tổng | `memory/nha_tro_app_requirements.md` | Requirement Check |
@@ -245,9 +252,14 @@ Xem chi tiết tại `.claudes/skills/todo-workflow.md` v3.0.
 
 ---
 
-*CLAUDE.md version: 1.2 · Cập nhật: 2026-05-16*
+*CLAUDE.md version: 1.3 · Cập nhật: 2026-05-16*
 
 **Changelog:**
+- v1.3 (16/05/2026): Sau retrospective T-016 (workflow v3.1)
+  - Thêm 2 skill mới: `runtime-smoke-test.md` (v1.0) + `debug-workflow.md` (v1.0)
+  - Bump `todo-workflow.md` v3.0 → v3.1 (thêm Phase E)
+  - Update "Quy trình làm task": thêm bước 6 RUNTIME SMOKE TEST giữa VERIFY và ACT
+  - Bảng "File quan trọng" bổ sung 2 skill mới
 - v1.2 (16/05/2026): Sau retrospective T-015
   - Update bảng "6 Module trạng thái" (Module 1, 2 đã 🟡)
   - Thêm section "Quyết định nghiệp vụ chính" (multi-tenant, cảnh báo nợ, migration, ACT)
