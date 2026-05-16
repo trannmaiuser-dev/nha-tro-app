@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { generateRegistrationOptions, RP_NAME, RP_ID } from '@/lib/webauthn'
+import { generateRegistrationOptions, RP_NAME, getRpId } from '@/lib/webauthn'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 
 export async function POST(req: NextRequest) {
@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
 
   const options = await generateRegistrationOptions({
     rpName:                RP_NAME,
-    rpID:                  RP_ID,
+    rpID:                  getRpId(),
     userID:                user.id,
     userName:              user.phone,
     userDisplayName:       user.full_name,

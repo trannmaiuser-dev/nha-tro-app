@@ -4,32 +4,40 @@ import LoginForm from '@/components/LoginForm'
 
 export default async function LoginPage() {
   const user = await getCurrentUser()
-  if (user) redirect('/dashboard')
+  if (user) redirect(user.role === 'owner' ? '/home' : '/dashboard')
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-primary-50 via-white to-white flex flex-col items-center justify-center p-6">
-      {/* Floating blobs */}
-      <div className="fixed top-0 right-0 w-64 h-64 bg-primary-100 rounded-full -translate-y-1/2 translate-x-1/2 opacity-50 blur-3xl pointer-events-none" />
-      <div className="fixed bottom-0 left-0 w-48 h-48 bg-accent-100 rounded-full translate-y-1/2 -translate-x-1/2 opacity-40 blur-3xl pointer-events-none" />
+    <main className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden"
+      style={{ background: 'linear-gradient(160deg, #FFF8F0 0%, #E8F5EE 100%)' }}>
+
+      {/* Decorative blobs */}
+      <div className="fixed top-0 right-0 w-80 h-80 rounded-full pointer-events-none"
+        style={{ background: 'radial-gradient(circle, rgba(29,158,117,0.12) 0%, transparent 70%)', transform: 'translate(30%, -30%)' }}/>
+      <div className="fixed bottom-0 left-0 w-64 h-64 rounded-full pointer-events-none"
+        style={{ background: 'radial-gradient(circle, rgba(255,112,67,0.10) 0%, transparent 70%)', transform: 'translate(-30%, 30%)' }}/>
 
       <div className="w-full max-w-sm relative z-10 animate-slide-up">
         {/* Illustration */}
-        <div className="flex justify-center mb-6">
+        <div className="flex justify-center mb-5">
           <HouseIllustration />
         </div>
 
         {/* Branding */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-black text-primary-600 tracking-tight">Aloha Tran Home</h1>
-          <p className="text-gray-400 text-sm mt-1.5 font-medium">Quản lý nhà trọ thông minh 🏡</p>
+        <div className="text-center mb-6">
+          <h1 className="text-3xl font-black tracking-tight" style={{ color: 'var(--primary)' }}>
+            Aloha Tran Home
+          </h1>
+          <p className="text-sm mt-1 font-medium" style={{ color: 'var(--text-3)' }}>
+            Quản lý nhà trọ thông minh 🏡
+          </p>
         </div>
 
         {/* Login card */}
-        <div className="card shadow-float">
+        <div className="bg-white rounded-3xl p-6" style={{ boxShadow: 'var(--shadow-float)' }}>
           <LoginForm />
         </div>
 
-        <p className="text-center text-xs text-gray-300 mt-6 font-medium">
+        <p className="text-center text-xs mt-6 font-medium" style={{ color: 'var(--text-3)' }}>
           Aloha Tran Home &copy; 2025
         </p>
       </div>

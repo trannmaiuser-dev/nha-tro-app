@@ -7,12 +7,19 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { subscription } = await req.json()
+  if (!subscription?.endpoint || !subscription?.keys?.p256dh || !subscription?.keys?.auth) {
+    return NextResponse.json({ error: 'Invalid subscription' }, { status: 400 })
+  }
+
   const sb = createServerSupabaseClient()
 
-  await sb
-    .from('users')
-    .update({ push_subscription: JSON.stringify(subscription) })
-    .eq('id', user.userId)
+  // Upsert by endpoint — same device refreshes its subscription
+  await sb.from('push_subscriptions').upsert({
+    user_id:  user.userId,
+    endpoint: subscription.endpoint,
+    p256dh:   subscription.keys.p256dh,
+    auth:     subscription.keys.auth,
+  }, { onConflict: 'endpoint' })
 
   return NextResponse.json({ success: true })
 }

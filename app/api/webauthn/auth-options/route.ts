@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { generateAuthenticationOptions, RP_ID } from '@/lib/webauthn'
+import { generateAuthenticationOptions, getRpId } from '@/lib/webauthn'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 
 export async function POST(req: NextRequest) {
@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
   }
 
   const options = await generateAuthenticationOptions({
-    rpID: RP_ID,
+    rpID: getRpId(),
     userVerification: 'preferred',
     allowCredentials: [{
       id:   user.webauthn_credential_id,

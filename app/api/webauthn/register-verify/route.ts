@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyRegistrationResponse, RP_ID, ORIGIN } from '@/lib/webauthn'
+import { verifyRegistrationResponse, getRpId, getOrigin } from '@/lib/webauthn'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { isoBase64URL } from '@simplewebauthn/server/helpers'
 
@@ -21,8 +21,8 @@ export async function POST(req: NextRequest) {
     const verification = await verifyRegistrationResponse({
       response:             registration,
       expectedChallenge:    user.webauthn_challenge,
-      expectedOrigin:       ORIGIN,
-      expectedRPID:         RP_ID,
+      expectedOrigin:       getOrigin(),
+      expectedRPID:         getRpId(),
       requireUserVerification: true,
     })
 

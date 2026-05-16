@@ -13,11 +13,19 @@ function init() {
   initialized = true
 }
 
+export interface PushSubscriptionRow {
+  endpoint: string
+  p256dh:   string
+  auth:     string
+}
+
 export async function sendPushNotification(
-  subscriptionJson: string,
+  sub: PushSubscriptionRow,
   payload: { title: string; body: string; data?: Record<string, unknown> }
 ) {
   init()
-  const subscription = JSON.parse(subscriptionJson) as webpush.PushSubscription
-  return webpush.sendNotification(subscription, JSON.stringify(payload))
+  return webpush.sendNotification(
+    { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+    JSON.stringify(payload)
+  )
 }

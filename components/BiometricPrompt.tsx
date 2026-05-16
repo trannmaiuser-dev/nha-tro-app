@@ -49,8 +49,10 @@ export default function BiometricPrompt({ phone, onDone }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 animate-fade-in">
-      <div className="bg-white rounded-3xl shadow-float w-full max-w-sm p-6 animate-slide-up">
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 animate-fade-in"
+      onClick={() => onDone(false)}>
+      <div className="bg-white rounded-3xl shadow-float w-full max-w-sm p-6 animate-slide-up"
+        onClick={e => e.stopPropagation()}>
         {step === 'prompt' && (
           <>
             <div className="flex justify-center mb-5">

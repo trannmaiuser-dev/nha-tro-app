@@ -27,10 +27,11 @@ export async function POST(req: NextRequest) {
   }
 
   const token = await createSession({
-    userId:   user.id,
-    phone:    user.phone,
-    role:     user.role,
-    fullName: user.full_name,
+    userId:            user.id,
+    phone:             user.phone,
+    role:              user.role,
+    fullName:          user.full_name,
+    isProfileComplete: user.is_profile_complete ?? true,
   })
 
   const response = NextResponse.json({

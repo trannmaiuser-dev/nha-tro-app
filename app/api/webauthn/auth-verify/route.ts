@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyAuthenticationResponse, RP_ID, ORIGIN } from '@/lib/webauthn'
+import { verifyAuthenticationResponse, getRpId, getOrigin } from '@/lib/webauthn'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { createSession } from '@/lib/auth'
 import { isoBase64URL } from '@simplewebauthn/server/helpers'
@@ -22,8 +22,8 @@ export async function POST(req: NextRequest) {
     const verification = await verifyAuthenticationResponse({
       response:          assertion,
       expectedChallenge: user.webauthn_challenge,
-      expectedOrigin:    ORIGIN,
-      expectedRPID:      RP_ID,
+      expectedOrigin:    getOrigin(),
+      expectedRPID:      getRpId(),
       authenticator: {
         credentialID:        isoBase64URL.toBuffer(user.webauthn_credential_id),
         credentialPublicKey: isoBase64URL.toBuffer(user.webauthn_public_key),
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
       fullName: user.full_name,
     })
 
-    const response = NextResponse.json({ success: true })
+    const response = NextResponse.json({ success: true, role: user.role })
     response.cookies.set('auth-token', token, {
       httpOnly: true,
       secure:   process.env.NODE_ENV === 'production',
