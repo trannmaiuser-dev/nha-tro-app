@@ -69,6 +69,12 @@ Xem chi tiết tại `.claudes/skills/todo-workflow.md` (Hành vi 3).
 | Toast | sonner | Không dùng library khác |
 | Camera AI | Face-api.js | Giai đoạn 5 |
 
+### Dev tooling
+
+- **Dev impersonate endpoint** `/api/dev/impersonate` cho Phase E auto (T-022, 2026-05-17).
+  Cần `DEV_IMPERSONATE_TOKEN` trong `.env.local`. Disable production qua `NODE_ENV` check
+  (4 layer defense). Xem `task/done/done.022-dev-impersonate-endpoint.md`.
+
 ---
 
 ## Quy tắc code BẮT BUỘC
@@ -252,9 +258,12 @@ Xem chi tiết tại `.claudes/skills/todo-workflow.md` v3.1.
 
 ---
 
-*CLAUDE.md version: 1.3 · Cập nhật: 2026-05-16*
+*CLAUDE.md version: 1.4 · Cập nhật: 2026-05-17*
 
 **Changelog:**
+- v1.4 (17/05/2026): T-022 dev impersonate endpoint cho Phase E auto
+  - Thêm subsection "Dev tooling" trong "Stack kỹ thuật" với note `/api/dev/impersonate`
+  - Workflow v3.2 (Phase E auto, sắp viết) sẽ reference endpoint này
 - v1.3 (16/05/2026): Sau retrospective T-016 (workflow v3.1)
   - Thêm 2 skill mới: `runtime-smoke-test.md` (v1.0) + `debug-workflow.md` (v1.0)
   - Bump `todo-workflow.md` v3.0 → v3.1 (thêm Phase E)

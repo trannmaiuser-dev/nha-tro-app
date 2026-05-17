@@ -1,7 +1,8 @@
 # T-022 — Dev impersonate endpoint cho Phase E auto
 
-## Trạng thái: 🔴 Đang làm
+## Trạng thái: 🟢 Done
 ## Ngày tạo: 2026-05-17
+## Ngày hoàn thành: 2026-05-17
 ## Ước lượng: 45 phút
 ## Áp dụng Phase E: ✅ Yes (curl, không cần Chrome)
 ## Branch: feature/t022-dev-impersonate
@@ -158,4 +159,15 @@ Mỗi layer trả status code khác nhau để dev debug dễ:
 
 ## ACT — Bài học rút ra
 
-(Fill cuối session)
+1. **Adapt theo codebase, không theo prompt cứng**: 3 STOP-AND-LOG decisions
+   (role='owner' không phải 'admin', redirect /dashboard cho cả 2 role, inline
+   Supabase thay getUserById helper không có) tránh tạo code mismatch với
+   convention hiện tại.
+
+2. **Defense in depth cho dev tooling**: endpoint bypass auth phải có ≥4 layer
+   (NODE_ENV + token env + timingSafeEqual + user exists). Layer 1 NODE_ENV
+   được production build verify thực tế ở E6 — không tin code review một mình.
+
+3. **Phase E format phải match nature task**: T-022 là API endpoint nên curl
+   test phù hợp hơn Chrome automation. Skill phase-e-auto.md (sắp viết) cần
+   note rule "chọn tool test theo loại task: UI → Chrome, API → curl, DB → SQL".
