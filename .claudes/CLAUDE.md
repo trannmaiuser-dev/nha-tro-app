@@ -28,11 +28,17 @@ nha-tro-app/
 │       ├── data-layer-pattern.md  ← (sẽ tạo trong Module 3)
 │       └── server-action-pattern.md ← (sẽ tạo trong Module 3)
 │
-├── memory/                        ← TỰ ĐỘNG QUÉT
+├── memory/                        ← TỰ ĐỘNG QUÉT (reference, long-term)
 │   ├── nha_tro_app_requirements.md   (BẮT BUỘC tồn tại)
 │   ├── usecase-*.md                  (use case từng module)
 │   ├── retrospective-*.md            (bài học từ các retrospective)
-│   └── <chu-de>-notes.md             (ghi chú khác nếu có)
+│   └── *-decisions.md                (decisions cross-task, vd t016-decisions.md)
+│
+├── work/                          ← KHÔNG auto-scan (working artifact, per-task)
+│   ├── README.md
+│   ├── audit-*.md                    (audit report 1 lần)
+│   ├── debug-*.md                    (debug session log)
+│   └── *-progress.md                 (checklist trong task lifecycle)
 │
 ├── task/                          ← lưu ý: singular (legacy đặt tên)
 │   ├── README.md
@@ -59,6 +65,15 @@ nha-tro-app/
 - **LUÔN đọc:** `nha_tro_app_requirements.md` + `retrospective-*.md`
 
 Xem chi tiết tại `.claudes/skills/todo-workflow.md` (Hành vi 3).
+
+### ⚠️ Quy tắc memory/ vs work/
+
+- `memory/` = reference, auto-scan mỗi Requirement Check.
+  - Requirements, use cases, retrospectives, cross-task decisions
+- `work/` = working artifact, KHÔNG auto-scan.
+  - Audit report, debug log, progress checklist (per task)
+- Khi tạo audit/debug/progress mới: BẮT BUỘC vào `work/`, KHÔNG vào `memory/`
+- Decisions per-task (D1-D26 của T-016, etc.) đặt ở `memory/<task>-decisions.md` vì có thể cross-reference từ task khác
 
 ---
 
@@ -270,12 +285,19 @@ Xem chi tiết tại `.claudes/skills/todo-workflow.md` v3.1.
 | Yêu cầu tổng | `memory/nha_tro_app_requirements.md` | Requirement Check |
 | Use case chi tiết | `memory/usecase-*.md` | **Tự scan** khi Requirement Check |
 | Retrospective | `memory/retrospective-*.md` | **LUÔN đọc** — bài học cũ |
+| Working artifact | `work/<tên>.md` | Khi cần debug/audit cũ (KHÔNG auto-scan) |
 
 ---
 
-*CLAUDE.md version: 1.5 · Cập nhật: 2026-05-17*
+*CLAUDE.md version: 1.6 · Cập nhật: 2026-05-17*
 
 **Changelog:**
+- v1.6 (17/05/2026): Tách memory/ và work/
+  - `memory/` giữ reference: requirements, usecases, retrospectives, cross-task decisions
+  - `work/` chứa working artifact: audit, debug, progress (per task)
+  - Auto-scan workflow chỉ `memory/`, KHÔNG scan `work/`
+  - Bump `todo-workflow.md` v3.2 → v3.2.1 (patch Hành vi 3)
+  - Files moved: t016-progress.md, t016c-progress.md, t016d-progress.md → work/
 - v1.5 (17/05/2026): Workflow v3.2 — Phase E auto support
   - Thêm 2 skill: `phase-e-auto.md` (v1.0) + `data-seed-pattern.md` (v1.0)
   - Bump `todo-workflow.md` v3.1 → v3.2 (Phase C build bắt buộc, mode declare, amend pattern)

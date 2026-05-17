@@ -25,11 +25,16 @@ tasks/template/TEMPLATE.todo.md    ← template gốc, KHÔNG sửa
 tasks/todo/todo.XXX-ten-task.md    ← task đang làm
 tasks/done/done.XXX-ten-task.md    ← task đã xong
 
-memory/                            ← TỰ ĐỘNG QUÉT, không cần liệt kê
+memory/                            ← TỰ ĐỘNG QUÉT (reference, long-term)
 ├── nha_tro_app_requirements.md    ← yêu cầu tổng (LUÔN đọc)
 ├── usecase-*.md                   ← use case từng module
 ├── retrospective-*.md             ← bài học từ các retrospective
-└── (bất kỳ file *.md nào khác)    ← cũng đọc nếu liên quan
+└── *-decisions.md                 ← decisions cross-task (vd t016-decisions.md)
+
+work/                              ← KHÔNG auto-scan (working artifact, per-task)
+├── audit-*.md                     ← audit report 1 lần
+├── debug-*.md                     ← debug session log
+└── *-progress.md                  ← checklist trong task lifecycle
 ```
 
 ### Quy tắc đặt tên
@@ -97,12 +102,14 @@ memory/                            ← TỰ ĐỘNG QUÉT, không cần liệt k
 #### BƯỚC 1 — TỰ SCAN MEMORY/
 
 1. Đọc file todo, xác định Module/chủ đề
-2. Liệt kê toàn bộ `*.md` trong `memory/`
+2. Liệt kê toàn bộ `*.md` trong `memory/` (KHÔNG scan `work/` — working artifact đọc explicit khi cần)
 3. Với mỗi file, check keyword match module:
    - **LUÔN đọc:** `nha_tro_app_requirements.md`
    - **LUÔN đọc:** `retrospective-*.md` (bài học cũ)
    - **Đọc nếu match:** tên file chứa keyword module
 4. Log: "📚 Đã đọc: <list>"
+
+> **Lưu ý**: `work/` chứa audit/debug/progress per-task, KHÔNG auto-scan. Đọc trực tiếp khi user yêu cầu hoặc cần reference cụ thể (vd "check audit T-024 ở work/audit-2026-05-17-data-flow.md").
 
 #### BƯỚC 2 — ĐỐI CHIẾU 3 CHIỀU
 
@@ -521,9 +528,13 @@ Bạn chọn cách nào?
 
 ---
 
-*Skill version: 3.2 · Cập nhật: 2026-05-17*
+*Skill version: 3.2.1 · Cập nhật: 2026-05-17*
 
 **Changelog:**
+- v3.2.1 (17/05/2026): Patch — auto-scan chỉ `memory/`, KHÔNG scan `work/`
+  - Working artifact (audit/debug/progress) tách sang `work/` (không auto-scan)
+  - Hành vi 3 Bước 1 update: chỉ liệt kê `memory/`, note explicit cho `work/`
+  - Cross-link CLAUDE.md v1.6 (tách memory/work)
 - v3.2 (17/05/2026): Sau pilot Phase E auto (T-021, T-022)
   - **Phase C bắt buộc `npm run build`** (không skip env-dependent) — T-021 phát hiện ESLint error sau tsc pass
   - **Phase E mode declare ở todo metadata**: `auto | manual | hybrid`
