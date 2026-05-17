@@ -4,6 +4,7 @@
 ## Ngày tạo: 2026-05-16
 ## Ước lượng: 2-3 giờ
 ## Áp dụng Phase E: ✅ Yes
+## Phase E mode: auto
 ## Branch: feature/t021-fix-onboarding-ui
 
 ---
@@ -95,46 +96,52 @@ Phát hiện 2 bug trong quá trình test T-016 runtime:
 
 ---
 
-## Phase E — Runtime Smoke Test
+## Phase E — Runtime Smoke Test (mode: auto)
 
-### E1 — Tenant complete với chỉ optional thiếu
+⚠️ Test qua Claude in Chrome theo skill `.claudes/skills/phase-e-auto.md`.
 
-**Setup:** Tenant onboarding, điền đủ 8 required field, KHÔNG upload 3 file optional
+### Files
 
-**Action:** Click "Hoàn thành" ở trang review
+- [task/todo/021/seed.sql](021/seed.sql) — setup data 3 scenarios (idempotent)
+- [task/todo/021/verify.sql](021/verify.sql) — query verify post-test
+- [task/todo/021/cleanup.sql](021/cleanup.sql) — cleanup test data (scope phone `0911999%`)
 
-**Pass criteria UI:**
-- KHÔNG hiện block error
-- Hiện warning vàng "Còn thiếu giấy tờ — bổ sung trong 7 ngày"
-- Click "Hoàn thành" thành công, redirect về home tenant
+### Schema notes (inventory tại lúc viết — adapt từ supabase/migrations-v*.sql)
 
-**Pass criteria SQL:**
-```sql
-SELECT is_profile_complete, tenant_status FROM users WHERE phone = '<test_phone>';
-```
-→ is_profile_complete=true, tenant_status='active'
+- `rooms.name` (KHÔNG phải `rooms.room_number`) — vd `P101`, `P102`, `P201`
+- `users` KHÔNG có cột `avatar_url` — avatar nằm ở `tenant_profiles.avatar_url`
+- 3 file optional (cccd_front, cccd_back, contract) là rows trong `tenant_documents`
+  với `type` discriminator, KHÔNG phải column riêng
+- `emergency_contacts.tenant_id` → `tenant_profiles.id` (KHÔNG phải `users.id`)
+- `tenant_bank_accounts.user_id` → `users.id`
+- `move_requests` chỉ có `user_id, room_id, requested_date, reason, status` — KHÔNG có cột `type`
 
-### E2 — Cache invalidation sau duyệt move-request
+### Placeholders cần replace lúc paste vào Supabase Studio
 
-**Setup:** Phòng P102 có 1 khách (như TC1 cũ), tạo move_request
+| Placeholder | Cách lấy |
+|---|---|
+| `{{ROOM_E2_UUID}}` | `SELECT id FROM rooms WHERE name='P102' LIMIT 1;` (hoặc phòng vacant khác) |
+| `{{ROOM_E3_UUID}}` | `SELECT id FROM rooms WHERE name='P101' LIMIT 1;` (chọn KHÁC `{{ROOM_E2_UUID}}`) |
+| `{{OWNER_UUID}}` | `SELECT id FROM users WHERE role='owner' LIMIT 1;` |
+| `{{DEV_IMPERSONATE_TOKEN}}` | `grep DEV_IMPERSONATE_TOKEN .env.local` |
 
-**Action:** Admin duyệt move-request
+### Test scenarios
 
-**Pass criteria UI:**
-- /dashboard tự update KHÔNG cần hard refresh
-- Phòng đổi sang "Trống" / "Có người ít hơn" ngay sau action
+| # | Scenario | UI steps (E-execute) | Expected (E-verify SQL) |
+|---|---|---|---|
+| E1 | Tenant complete với chỉ optional thiếu | 1. Impersonate tenant `0911999001` (`/api/dev/impersonate?token=...&user_id=<0911999001-uuid>`)<br>2. Navigate `/profile/setup` (auto redirect)<br>3. Đi qua các Step điền thông tin (8 required đã seed sẵn, chỉ cần next-through)<br>4. Step 5 (Review): verify hiện warning **VÀNG** "Khuyến nghị" cho 3 file optional (CCCD front/back + contract), KHÔNG block đỏ<br>5. Verify text "Vẫn có thể bấm nút Hoàn thành đăng ký — nhớ bổ sung trong 7 ngày." xuất hiện<br>6. Click "Hoàn thành đăng ký" | E1 query row 1:<br>`is_profile_complete=true`<br>`tenant_status='active'`<br>`profile_status='confirmed'`<br>3 doc count = 0 |
+| E2 | Cache invalidation sau duyệt move-request | 1. Impersonate owner (`/api/dev/impersonate?token=...&user_id=<owner-uuid>`)<br>2. Tab A: `/admin/move-requests`, find request `00000000-...-777002`, click **Duyệt**<br>3. Tab B (mở mới): `/dashboard`, F5 (KHÔNG hard refresh)<br>4. Verify phòng E2 status update | E2 query row:<br>`req_status='approved'`<br>`has_reviewer=true`<br>`room_status='vacant'`<br>`room_tenant_id_null=true`<br>`membership_left=true` |
+| E3 | Auto-promote primary sau move-out (re-verify T-016) | 1. Impersonate owner (cùng token)<br>2. `/admin/move-requests`, find request `00000000-...-777003` (E3 primary move-out), click **Duyệt**<br>3. `/dashboard`, F5<br>4. Verify phòng E3: badge "Đại diện" giờ trên **Test T021 E3 Second** (KHÔNG còn ở Primary cũ) | E3 query 2 rows:<br>• `0911999003`: `is_primary=false, is_active=false`<br>• `0911999004`: `is_primary=true, is_active=true`<br>E3-room: `status='occupied'`, `tenant_id_phone='0911999004'` |
 
-**Pass criteria SQL:**
-- rooms.status update đồng bộ với UI
+### Pass criteria
 
-### E3 — Re-verify TC4 T-016 (auto-promote vẫn work + UI update)
+- [ ] E1 UI assertion + SQL verify pass
+- [ ] E2 UI assertion + SQL verify pass
+- [ ] E3 UI assertion + SQL verify pass
+- [ ] Không phát hiện regression T-016/c/d
 
-**Setup:** Phòng có 2 người, primary chuyển đi
-
-**Action:** Admin duyệt move-out của primary
-
-**Pass criteria UI:**
-- /dashboard tự update, người còn lại có badge "Đại diện" NGAY (không cần refresh)
+Nếu fail bất kỳ scenario → tạo task hậu tố T-021b dùng skill `.claudes/skills/debug-workflow.md`.
+Cleanup sau test: chạy `task/todo/021/cleanup.sql`.
 
 ---
 
