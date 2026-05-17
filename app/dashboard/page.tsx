@@ -18,7 +18,6 @@ type TenantRoomShape = {
   floor:      number
   price:      number
   status:     string
-  tenant_id:  string | null
 }
 
 export default async function DashboardPage() {
@@ -42,7 +41,7 @@ export default async function DashboardPage() {
       const roomId = memberships[0].room.id
       const { data: roomRow } = await sb
         .from('rooms')
-        .select('id, name, floor, price, status, tenant_id')
+        .select('id, name, floor, price, status')
         .eq('id', roomId)
         .single()
       if (roomRow) tenantRoom = roomRow as TenantRoomShape

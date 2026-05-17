@@ -54,6 +54,19 @@ export async function createTenantAccount(
   }
 }
 
+// T-016b: helper extract primary active room từ room_tenants nested select.
+// Replace pattern cũ `rooms!tenant_id(...)` (1-1 join qua legacy column).
+type TenantMembershipShape = {
+  is_primary: boolean
+  left_at:    string | null
+  room:       { id: string; name: string; floor: number } | { id: string; name: string; floor: number }[] | null
+}
+function extractPrimaryRoom(memberships: TenantMembershipShape[] | undefined | null) {
+  const active = (memberships ?? []).find(m => m.is_primary && m.left_at === null)
+  if (!active?.room) return null
+  return Array.isArray(active.room) ? active.room[0] : active.room
+}
+
 // ─── Lấy tất cả khách thuê ───────────────────────────────────
 export async function getAllTenants(): Promise<TenantRow[]> {
   const sb = createServerSupabaseClient()
@@ -62,12 +75,18 @@ export async function getAllTenants(): Promise<TenantRow[]> {
     .select(`
       id, phone, full_name, role, is_profile_complete, tenant_status, has_debt,
       tenant_profiles(id, avatar_url, profile_status),
-      rooms!tenant_id(id, name, floor)
+      room_tenants!user_id(
+        is_primary, left_at,
+        room:rooms!room_id(id, name, floor)
+      )
     `)
     .eq('role', 'tenant')
     .order('full_name')
   if (error) throw new Error('Không thể lấy danh sách khách thuê')
-  return (data ?? []) as unknown as TenantRow[]
+  return (data ?? []).map(t => {
+    const { room_tenants: rt, ...rest } = t as typeof t & { room_tenants: TenantMembershipShape[] }
+    return { ...rest, room: extractPrimaryRoom(rt) }
+  }) as unknown as TenantRow[]
 }
 
 // ─── Lấy 1 khách theo ID ─────────────────────────────────────
@@ -78,24 +97,37 @@ export async function getTenantById(id: string): Promise<TenantRow | null> {
     .select(`
       id, phone, full_name, role, is_profile_complete, tenant_status, has_debt,
       tenant_profiles(id, full_name, dob, gender, cccd_number, address, occupation, avatar_url, profile_status),
-      rooms!tenant_id(id, name, floor)
+      room_tenants!user_id(
+        is_primary, left_at,
+        room:rooms!room_id(id, name, floor)
+      )
     `)
     .eq('id', id)
     .eq('role', 'tenant')
     .single()
-  return (data as TenantRow | null)
+  if (!data) return null
+  const { room_tenants: rt, ...rest } = data as typeof data & { room_tenants: TenantMembershipShape[] }
+  return { ...rest, room: extractPrimaryRoom(rt) } as unknown as TenantRow
 }
 
 // ─── Lấy khách theo phòng ────────────────────────────────────
+// T-016b: query qua room_tenants (multi-tenant correct, primary + non-primary đều trả).
 export async function getTenantsByRoomId(roomId: string): Promise<TenantRow[]> {
   const sb = createServerSupabaseClient()
+
+  const { data: memberships } = await sb
+    .from('room_tenants')
+    .select('user_id')
+    .eq('room_id', roomId)
+    .is('left_at', null)
+  const userIds = (memberships ?? []).map(m => m.user_id)
+  if (userIds.length === 0) return []
+
   const { data } = await sb
     .from('users')
     .select('id, phone, full_name, role, is_profile_complete, tenant_status, has_debt, tenant_profiles(avatar_url, profile_status)')
     .eq('role', 'tenant')
-    .in('id',
-      sb.from('rooms').select('tenant_id').eq('id', roomId).not('tenant_id', 'is', null) as unknown as string[]
-    )
+    .in('id', userIds)
   return (data ?? []) as unknown as TenantRow[]
 }
 
@@ -153,11 +185,21 @@ export async function searchTenants(query: string): Promise<TenantRow[]> {
 
   const { data } = await sb
     .from('users')
-    .select('id, phone, full_name, role, is_profile_complete, tenant_status, has_debt, tenant_profiles(avatar_url, profile_status), rooms!tenant_id(id, name, floor)')
+    .select(`
+      id, phone, full_name, role, is_profile_complete, tenant_status, has_debt,
+      tenant_profiles(avatar_url, profile_status),
+      room_tenants!user_id(
+        is_primary, left_at,
+        room:rooms!room_id(id, name, floor)
+      )
+    `)
     .eq('role', 'tenant')
     .or(`phone.ilike.%${kw}%,full_name.ilike.%${kw}%`)
     .order('full_name')
-  return (data ?? []) as unknown as TenantRow[]
+  return (data ?? []).map(t => {
+    const { room_tenants: rt, ...rest } = t as typeof t & { room_tenants: TenantMembershipShape[] }
+    return { ...rest, room: extractPrimaryRoom(rt) }
+  }) as unknown as TenantRow[]
 }
 
 // ─── Đánh dấu đã đổi mật khẩu lần đầu ───────────────────────

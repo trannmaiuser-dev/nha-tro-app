@@ -10,7 +10,6 @@ interface Room {
   floor: number
   price: number
   status: string
-  tenant_id: string | null
 }
 
 interface Payment {

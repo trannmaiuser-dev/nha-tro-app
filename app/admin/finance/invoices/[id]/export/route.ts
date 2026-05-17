@@ -17,16 +17,18 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   const invoice = await getInvoiceById(params.id)
   if (!invoice) return NextResponse.json({ error: 'Không tìm thấy hóa đơn' }, { status: 404 })
 
-  // Tenant name (optional)
+  // T-016b: lấy primary tenant qua room_tenants (rooms.tenant_id đã drop).
   let tenantName: string | null = null
   if (invoice.room?.id) {
     const sb = createServerSupabaseClient()
     const { data } = await sb
-      .from('rooms')
-      .select('tenant:users!tenant_id(full_name)')
-      .eq('id', invoice.room.id)
+      .from('room_tenants')
+      .select('user:users!user_id(full_name)')
+      .eq('room_id', invoice.room.id)
+      .eq('is_primary', true)
+      .is('left_at', null)
       .maybeSingle()
-    const tenant = data?.tenant as unknown as { full_name?: string } | null
+    const tenant = data?.user as unknown as { full_name?: string } | null
     tenantName = tenant?.full_name ?? null
   }
 

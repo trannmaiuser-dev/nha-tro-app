@@ -1,11 +1,13 @@
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import type { Room, RoomInput, RoomWithTenants, RoomTenantEntry } from '@/types'
 
+// T-016b: bỏ join `tenant:users!tenant_id` — cột `rooms.tenant_id` đã drop.
+// Callers cần data tenants[] dùng `getAllRoomsWithTenants` / `getRoomByIdWithTenants`.
 export async function getAllRooms(): Promise<Room[]> {
   const sb = createServerSupabaseClient()
   const { data, error } = await sb
     .from('rooms')
-    .select('*, tenant:users!tenant_id(id, full_name, phone)')
+    .select('*')
     .order('name')
   if (error) throw new Error('Không thể lấy danh sách phòng')
   return data ?? []
@@ -15,7 +17,7 @@ export async function getRoomById(id: string): Promise<Room | null> {
   const sb = createServerSupabaseClient()
   const { data, error } = await sb
     .from('rooms')
-    .select('*, tenant:users!tenant_id(id, full_name, phone)')
+    .select('*')
     .eq('id', id)
     .single()
   if (error) return null
@@ -26,7 +28,7 @@ export async function createRoom(input: RoomInput): Promise<Room> {
   const sb = createServerSupabaseClient()
   const { data, error } = await sb
     .from('rooms')
-    .insert({ ...input, tenant_id: null })
+    .insert(input)
     .select()
     .single()
   if (error) throw new Error('Không thể tạo phòng mới')
@@ -53,31 +55,55 @@ export async function deleteRoom(id: string): Promise<void> {
 
   const { data: room, error: fetchError } = await sb
     .from('rooms')
-    .select('tenant_id, name')
+    .select('name')
     .eq('id', id)
     .single()
 
   if (fetchError || !room) throw new Error('Không tìm thấy phòng')
-  if (room.tenant_id) throw new Error('Phòng này đang có khách thuê, không thể xóa')
+
+  // T-016b: check active tenants qua room_tenants thay vì rooms.tenant_id
+  const { count: activeCount } = await sb
+    .from('room_tenants')
+    .select('id', { count: 'exact', head: true })
+    .eq('room_id', id)
+    .is('left_at', null)
+  if ((activeCount ?? 0) > 0) {
+    throw new Error('Phòng này đang có khách thuê, không thể xóa')
+  }
 
   const { error } = await sb.from('rooms').delete().eq('id', id)
   if (error) throw new Error('Không thể xóa phòng')
 }
 
+// T-016b: search qua room_tenants thay vì legacy tenant:users!tenant_id join.
+// Lấy phòng có ít nhất 1 active tenant với full_name match keyword.
 export async function searchRoomsByTenantName(name: string): Promise<Room[]> {
   const sb = createServerSupabaseClient()
+
+  const keyword = name.trim().toLowerCase()
+  if (!keyword) {
+    const { data } = await sb.from('rooms').select('*').order('name')
+    return data ?? []
+  }
+
   const { data, error } = await sb
     .from('rooms')
-    .select('*, tenant:users!tenant_id(id, full_name, phone)')
+    .select(`
+      *,
+      room_tenants!room_id(
+        left_at,
+        user:users!user_id(full_name)
+      )
+    `)
     .order('name')
   if (error) throw new Error('Không thể tìm kiếm phòng')
 
-  const keyword = name.trim().toLowerCase()
-  if (!keyword) return data ?? []
-
-  return (data ?? []).filter(r =>
-    r.tenant?.full_name?.toLowerCase().includes(keyword)
-  )
+  return (data ?? [])
+    .filter(r => {
+      const tenants = (r.room_tenants as Array<{ left_at: string | null; user: { full_name: string } | null }>) ?? []
+      return tenants.some(t => t.left_at === null && t.user?.full_name?.toLowerCase().includes(keyword))
+    })
+    .map(({ room_tenants: _rt, ...rest }) => rest as Room)
 }
 
 // ─── Multi-tenant helpers (T-016 Phase B — UC-02) ────────────
@@ -94,7 +120,6 @@ export async function getAllRoomsWithTenants(): Promise<RoomWithTenants[]> {
     .from('rooms')
     .select(`
       *,
-      tenant:users!tenant_id(id, full_name, phone),
       tenants:room_tenants!room_id(
         id, user_id, joined_at, is_primary, left_at,
         user:users!user_id(id, full_name, phone)
@@ -125,7 +150,6 @@ export async function getRoomByIdWithTenants(id: string): Promise<RoomWithTenant
     .from('rooms')
     .select(`
       *,
-      tenant:users!tenant_id(id, full_name, phone),
       tenants:room_tenants!room_id(
         id, user_id, joined_at, is_primary, left_at,
         user:users!user_id(id, full_name, phone)

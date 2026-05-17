@@ -8,11 +8,10 @@
  *   - throw Error tiếng Việt khi fail; server-action layer wrap thành Result<T>
  *   - select với nested join cho UI: `*, user:users(...)`, `room:rooms(...)`
  *
- * Backward compat (T-016 Phase B — chưa drop rooms.tenant_id):
- *   - room_tenants là source-of-truth mới cho membership
- *   - rooms.tenant_id được sync về user primary hiện tại (hoặc null khi phòng trống)
- *     để code/UI cũ tiếp tục hoạt động cho đến khi Phase C refactor xong
+ * T-016b (2026-05-18): drop column `rooms.tenant_id`, tắt dual-write.
+ *   - room_tenants là sole source-of-truth cho membership
  *   - rooms.status: 'vacant' khi không còn active tenant; 'occupied' khi có ít nhất 1
+ *   - KHÔNG sync rooms.tenant_id (đã DROP COLUMN ở migration v18)
  */
 
 import { createServerSupabaseClient } from '@/lib/supabase-server'
@@ -57,13 +56,8 @@ export async function addTenantToRoom(
     .single()
   if (error) throw new Error('Không thể thêm khách vào phòng: ' + error.message)
 
-  // Dual-write backward compat: nếu là primary → sync rooms.tenant_id
-  if (isPrimary) {
-    await sb.from('rooms').update({ tenant_id: userId, status: 'occupied' }).eq('id', roomId)
-  } else {
-    // Không đụng tenant_id (primary cũ vẫn giữ). Chỉ đảm bảo status = occupied.
-    await sb.from('rooms').update({ status: 'occupied' }).eq('id', roomId)
-  }
+  // T-016b: đã drop rooms.tenant_id — chỉ update status.
+  await sb.from('rooms').update({ status: 'occupied' }).eq('id', roomId)
 
   return data as RoomTenant
 }
@@ -94,11 +88,10 @@ export async function removeTenantFromRoom(
   if (updateError) throw new Error('Không thể đánh dấu khách rời phòng: ' + updateError.message)
 
   // Nếu vừa rời là primary → chọn người ở lâu nhất (joined_at sớm nhất) làm primary mới
-  let nextPrimaryUserId: string | null = null
   if (membership.is_primary) {
     const { data: nextPrimary } = await sb
       .from('room_tenants')
-      .select('id, user_id')
+      .select('id')
       .eq('room_id', roomId)
       .is('left_at', null)
       .order('joined_at', { ascending: true })
@@ -107,11 +100,10 @@ export async function removeTenantFromRoom(
 
     if (nextPrimary) {
       await sb.from('room_tenants').update({ is_primary: true }).eq('id', nextPrimary.id)
-      nextPrimaryUserId = nextPrimary.user_id
     }
   }
 
-  // Sync rooms.tenant_id + status
+  // T-016b: đã drop rooms.tenant_id — chỉ sync status.
   const { count } = await sb
     .from('room_tenants')
     .select('*', { count: 'exact', head: true })
@@ -119,12 +111,9 @@ export async function removeTenantFromRoom(
     .is('left_at', null)
 
   if ((count ?? 0) === 0) {
-    // Phòng trống → tenant_id null, status vacant
-    await sb.from('rooms').update({ tenant_id: null, status: 'vacant' }).eq('id', roomId)
-  } else if (nextPrimaryUserId) {
-    // Còn người + primary đã chuyển → sync rooms.tenant_id sang primary mới
-    await sb.from('rooms').update({ tenant_id: nextPrimaryUserId, status: 'occupied' }).eq('id', roomId)
+    await sb.from('rooms').update({ status: 'vacant' }).eq('id', roomId)
   }
+  // Nếu còn người: status đã là 'occupied' từ trước, không cần update.
 
   return updated as RoomTenant
 }
@@ -205,6 +194,7 @@ export async function setPrimaryTenant(roomId: string, userId: string): Promise<
     .eq('id', membership.id)
   if (error) throw new Error('Không thể chuyển quyền primary: ' + error.message)
 
-  // Sync rooms.tenant_id sang primary mới
-  await sb.from('rooms').update({ tenant_id: userId }).eq('id', roomId)
+  // T-016b: đã drop rooms.tenant_id — không cần sync.
+  // userId param giữ signature backward compat (T-019/T-020 reference).
+  void userId
 }

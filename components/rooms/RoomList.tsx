@@ -38,10 +38,10 @@ export default function RoomList({ initialRooms, defaultElectricityRate }: Props
     const kw = search.trim().toLowerCase()
     return rooms.filter(r => {
       const matchStatus = filter === 'all' || r.status === filter
+      // T-016b: bỏ legacy fallback `r.tenant` (Room.tenant đã drop khi cleanup tenant_id).
       const matchSearch = !kw
         || r.name.toLowerCase().includes(kw)
         || (r.tenants ?? []).some(t => t.user.full_name?.toLowerCase().includes(kw))
-        || r.tenant?.full_name?.toLowerCase().includes(kw)
       return matchStatus && matchSearch
     })
   }, [rooms, search, filter])

@@ -16,11 +16,18 @@ export async function createGuestAction(input: unknown): Promise<Result> {
     const parsed = guestSchema.safeParse(input)
     if (!parsed.success) return { success: false, error: parsed.error.issues[0].message }
 
+    // T-016b: lấy room_id qua room_tenants (rooms.tenant_id đã drop).
     const sb = createServerSupabaseClient()
-    const { data: room } = await sb.from('rooms').select('id').eq('tenant_id', user.userId).single()
-    if (!room) return { success: false, error: 'Bạn chưa được gán phòng' }
+    const { data: membership } = await sb
+      .from('room_tenants')
+      .select('room_id')
+      .eq('user_id', user.userId)
+      .is('left_at', null)
+      .limit(1)
+      .maybeSingle()
+    if (!membership) return { success: false, error: 'Bạn chưa được gán phòng' }
 
-    await createGuest(user.userId, room.id, parsed.data)
+    await createGuest(user.userId, membership.room_id, parsed.data)
     revalidatePath('/tenant/guests')
     revalidatePath('/notifications')
     return { success: true, data: undefined }

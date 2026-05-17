@@ -62,16 +62,25 @@ async function seed() {
   if (uError) { console.error('❌ Lỗi tạo users:', uError.message); process.exit(1) }
 
   console.log('🏠 Tạo phòng...')
+  // T-016b: bỏ tenant_id (đã drop). Gán tenant qua room_tenants bên dưới.
   const { data: rooms, error: rError } = await sb.from('rooms').insert([
-    { name: 'P101', floor: 1, price: 3500000, status: 'vacant',   tenant_id: null },
-    { name: 'P102', floor: 1, price: 3500000, status: 'vacant',   tenant_id: null },
-    {
-      name: 'P201', floor: 2, price: 4000000, status: 'occupied',
-      tenant_id: '00000000-0000-0000-0000-000000000002',
-    },
-    { name: 'P202', floor: 2, price: 4000000, status: 'vacant',   tenant_id: null },
+    { name: 'P101', floor: 1, price: 3500000, status: 'vacant' },
+    { name: 'P102', floor: 1, price: 3500000, status: 'vacant' },
+    { name: 'P201', floor: 2, price: 4000000, status: 'occupied' },
+    { name: 'P202', floor: 2, price: 4000000, status: 'vacant' },
   ]).select()
   if (rError) { console.error('❌ Lỗi tạo rooms:', rError.message); process.exit(1) }
+
+  // Gán Anh Hùng (id ...002) làm primary tenant của P201 qua room_tenants
+  const p201Room = rooms?.find(r => r.name === 'P201')
+  if (p201Room) {
+    await sb.from('room_tenants').insert({
+      room_id:    p201Room.id,
+      user_id:    '00000000-0000-0000-0000-000000000002',
+      is_primary: true,
+      joined_at:  new Date().toISOString(),
+    })
+  }
 
   console.log('💳 Tạo kỳ thanh toán P201...')
   const p201 = rooms?.find(r => r.name === 'P201')

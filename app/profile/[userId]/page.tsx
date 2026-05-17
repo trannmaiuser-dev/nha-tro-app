@@ -15,13 +15,23 @@ export default async function TenantProfilePage({ params }: { params: { userId: 
   const { data: profile } = await sb.from('tenant_profiles').select('*').eq('user_id', params.userId).single()
   if (!profile) notFound()
 
-  const [emergency, related, documents, tenantUser, room] = await Promise.all([
+  // T-016b: query phòng qua room_tenants (rooms.tenant_id đã drop).
+  const [emergency, related, documents, tenantUser, membership] = await Promise.all([
     sb.from('emergency_contacts').select('*').eq('tenant_id', profile.id).maybeSingle().then(r => r.data),
     sb.from('related_persons').select('*').eq('tenant_id', profile.id).then(r => r.data ?? []),
     sb.from('tenant_documents').select('*').eq('tenant_id', profile.id).then(r => r.data ?? []),
     sb.from('users').select('phone, full_name, is_profile_complete').eq('id', params.userId).single().then(r => r.data),
-    sb.from('rooms').select('id, name, floor, price').eq('tenant_id', params.userId).maybeSingle().then(r => r.data),
+    sb.from('room_tenants')
+      .select('room:rooms!room_id(id, name, floor, price)')
+      .eq('user_id', params.userId)
+      .is('left_at', null)
+      .limit(1)
+      .maybeSingle()
+      .then(r => r.data),
   ])
+  const room = membership?.room
+    ? (Array.isArray(membership.room) ? membership.room[0] : membership.room)
+    : null
 
   return (
     <TenantSummaryPage

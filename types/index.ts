@@ -21,10 +21,8 @@ export interface Room {
   deposit: number
   status: RoomStatus
   note: string | null
-  tenant_id: string | null
   /** Đơn giá điện VND/kWh riêng cho phòng. null = dùng default từ app_settings. */
   electricity_rate: number | null
-  tenant?: User | null
   created_at?: string
 }
 
