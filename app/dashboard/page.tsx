@@ -8,6 +8,10 @@ import TenantDashboard from '@/components/TenantDashboard'
 import PushNotificationSetup from '@/components/PushNotificationSetup'
 import type { Payment, RoomWithTenants } from '@/types'
 
+// T-021b: opt-out caching để revalidatePath từ approveMoveRequestAction
+// thực sự refresh được khi F5 thường (không cần Ctrl+Shift+R).
+export const dynamic = 'force-dynamic'
+
 type TenantRoomShape = {
   id:         string
   name:       string
