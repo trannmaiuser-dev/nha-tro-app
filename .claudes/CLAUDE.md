@@ -20,11 +20,13 @@ nha-tro-app/
 ├── .claudes/
 │   ├── CLAUDE.md                  ← file này
 │   └── skills/
-│       ├── todo-workflow.md       ← quy trình PDCA + Requirement Check (v3.2)
+│       ├── todo-workflow.md       ← quy trình PDCA + Requirement Check (v3.3)
 │       ├── runtime-smoke-test.md  ← Phase E format chung + manual (v1.1)
 │       ├── phase-e-auto.md        ← Phase E auto qua Claude in Chrome (v1.0)
 │       ├── data-seed-pattern.md   ← convention SQL seed/verify/cleanup (v1.0)
 │       ├── debug-workflow.md      ← quy trình tự debug bug runtime (v1.0)
+│       ├── code-review-pattern.md ← 12 anti-pattern check Phase C v3.3 (v1.0)
+│       ├── auto-decision-tiers.md ← Tier LOW auto vs Tier HIGH user duyệt (v1.0)
 │       ├── data-layer-pattern.md  ← (sẽ tạo trong Module 3)
 │       └── server-action-pattern.md ← (sẽ tạo trong Module 3)
 │
@@ -219,15 +221,15 @@ Mỗi task có file `tasks/todo/todo.XXX-ten-task.md` theo PDCA + Requirement Ch
 
 1. **PLAN** — scope rõ (trong/ngoài), deliverables, dependencies
 2. **DO** — code theo checklist, **GHI CHÚ KỸ** trong "Ghi chú khi làm"
-3. **CHECK** — self-check code quality
-4. **REQUIREMENT CHECK** — tự scan `memory/`, đối chiếu nghiệp vụ
+3. **CHECK** — self-check code quality (tsc + build + anti-pattern audit v3.3)
+4. **REQUIREMENT CHECK** — tự scan `memory/` (KHÔNG `work/`), đối chiếu nghiệp vụ
 5. **VERIFY** — test cases tĩnh (✅/❌/⏭️, không ⬜)
 6. **RUNTIME SMOKE TEST (Phase E)** ⭐ v3.1, MỞ RỘNG v3.2 — 3 mode declare ở todo metadata:
    - `auto` → `.claudes/skills/phase-e-auto.md` (Claude in Chrome + Supabase Studio)
    - `manual` → `.claudes/skills/runtime-smoke-test.md` (user test tay, legacy)
    - `hybrid` → kết hợp 2 file trên
    Áp dụng từ T-021 trở đi. Task done T-001 → T-020 giữ implicit manual mode.
-7. **ACT** — Claude đề xuất bài học, user duyệt
+7. **ACT v3.3** — CODE lesson auto-approve, LOGIC lesson user duyệt (xem `.claudes/skills/auto-decision-tiers.md`)
 8. **RENAME** — đổi tên + auto-update bảng module trong CLAUDE.md
 
 Khi xong: rename `todo.XXX-*.md` → `done.XXX-*.md`
@@ -275,11 +277,13 @@ Xem chi tiết tại `.claudes/skills/todo-workflow.md` v3.1.
 | Loại | Vị trí | Khi nào |
 |---|---|---|
 | Context tổng | `.claudes/CLAUDE.md` | Mỗi session mới |
-| Quy trình PDCA | `.claudes/skills/todo-workflow.md` (v3.2) | Khi làm task |
+| Quy trình PDCA | `.claudes/skills/todo-workflow.md` (v3.3) | Khi làm task |
 | Phase E format chung + manual | `.claudes/skills/runtime-smoke-test.md` (v1.1) | Khi viết Phase E cho task có UI change |
 | Phase E auto | `.claudes/skills/phase-e-auto.md` (v1.0) | Task có `mode: auto` (Claude in Chrome) |
 | Data seed pattern | `.claudes/skills/data-seed-pattern.md` (v1.0) | Mọi task có seed/verify SQL |
 | Debug bug runtime | `.claudes/skills/debug-workflow.md` (v1.0) | Khi Phase E fail, user paste prompt-debug-from-symptom |
+| Code review pattern | `.claudes/skills/code-review-pattern.md` (v1.0) | Phase C v3.3 BƯỚC 4 — audit 12 anti-pattern |
+| Auto-decision tiers | `.claudes/skills/auto-decision-tiers.md` (v1.0) | Phase ACT + classify decision LOW/HIGH |
 | Pattern data layer | `.claudes/skills/data-layer-pattern.md` | Khi code lib/db/ (sẽ có) |
 | Pattern server action | `.claudes/skills/server-action-pattern.md` | Khi code actions.ts (sẽ có) |
 | Yêu cầu tổng | `memory/nha_tro_app_requirements.md` | Requirement Check |
@@ -289,9 +293,18 @@ Xem chi tiết tại `.claudes/skills/todo-workflow.md` v3.1.
 
 ---
 
-*CLAUDE.md version: 1.6 · Cập nhật: 2026-05-17*
+*CLAUDE.md version: 1.7 · Cập nhật: 2026-05-17*
 
 **Changelog:**
+- v1.7 (17/05/2026): Workflow v3.3 — auto-approve code lesson + Phase C anti-pattern audit
+  - Bump `todo-workflow.md` v3.2.1 → v3.3
+    - Phase C BƯỚC 4: audit 12 anti-pattern (code-review-pattern.md)
+    - Phase ACT: CODE lesson auto-fill, LOGIC lesson user duyệt (auto-decision-tiers.md)
+    - Todo template thêm "## Auto-decisions" section
+    - Decision rules pre-defined cho autonomous mode
+  - Thêm 2 skill: `code-review-pattern.md` (v1.0) + `auto-decision-tiers.md` (v1.0)
+  - Bảng "File quan trọng" thêm 2 row skill mới
+  - Quy trình task: bước 3 (CHECK + audit), bước 7 (ACT auto-approve CODE lesson)
 - v1.6 (17/05/2026): Tách memory/ và work/
   - `memory/` giữ reference: requirements, usecases, retrospectives, cross-task decisions
   - `work/` chứa working artifact: audit, debug, progress (per task)

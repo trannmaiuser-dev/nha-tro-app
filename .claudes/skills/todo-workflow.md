@@ -158,6 +158,31 @@ Với từng mục: ✅ / ❌ / ⚠️
 > khi commit. Nếu env thiếu (Supabase URL...), tạo `.env.local` từ `.env.example`
 > để build chạy được — KHÔNG bỏ qua bước này.
 
+**BƯỚC 4 — AUDIT ANTI-PATTERN (BẮT BUỘC v3.3)**
+
+Theo `.claudes/skills/code-review-pattern.md` 12 check. Auto-fix CODE violations, STOP cho LOGIC violations.
+
+Quick grep audit:
+```bash
+# SA1: server action không revalidatePath
+grep -rl "use server" app/ | while read f; do
+  grep -q "revalidatePath" "$f" || echo "SA1 violation: $f"
+done
+
+# SC1: page dùng cookies/getCurrentUser thiếu force-dynamic
+grep -rl "getCurrentUser\|cookies()" app/ --include='*page.tsx' | while read f; do
+  grep -q "export const dynamic" "$f" || echo "SC1 violation: $f"
+done
+
+# (etc. cho 10 check khác — xem code-review-pattern.md)
+```
+
+Khi phát hiện violation:
+- **CODE auto-fixable** → fix tại chỗ + log Auto-decisions section
+- **LOGIC** → STOP, hỏi user
+
+> ⚠️ **Rule v3.3:** Catch bug ở Phase C thay vì Phase E. Bug Phase C fix bằng amend cùng task; bug Phase E phải tạo task hậu tố — đắt hơn nhiều. T-021 Phase E E2/E3 fail có root cause là 2 anti-pattern (SW navigation + force-dynamic missing) — nếu Phase C có audit này, fix được ngay.
+
 **BƯỚC 4 — VERIFY TEST CASES** ⭐ MỚI v3.0
 
 > Mỗi test case PHẢI có 1 trong 3 trạng thái:
@@ -306,7 +331,7 @@ KHÔNG sửa todo gốc — bug runtime sau Phase E luôn fix bằng task hậu 
 
 ### Quy trình rename (cập nhật v3.0)
 
-**BƯỚC 1 — HOÀN THIỆN PHẦN ACT** ⭐ MỚI v3.0
+**BƯỚC 1 — HOÀN THIỆN PHẦN ACT** ⭐ MỚI v3.0, MỞ RỘNG v3.3
 
 > 🚨 **TUYỆT ĐỐI CẤM** rename nếu phần "Bài học rút ra" trong ACT trống.
 
@@ -318,19 +343,35 @@ Trước khi rename, Claude PHẢI:
    - Quyết định kỹ thuật đã chọn
    - Pattern tốt vừa áp dụng
 
-2. **Đề xuất 1-3 bullet "Bài học rút ra"** cho user xem:
+2. **Generate proposed lessons + classify CODE vs LOGIC** (v3.3):
+
+   Theo `.claudes/skills/auto-decision-tiers.md`:
+   - **CODE lesson** = technique/pattern không thay UX/business
+     (vd: "force-dynamic khi dùng cookies", "TypeScript narrow sau early return")
+   - **LOGIC lesson** = architectural / process / cross-cutting standard
+     (vd: "SW skip navigation strategy", "Workflow PDCA cần Phase F")
+
+3. **Áp dụng auto-approve theo classification**:
+
+   - **CODE lessons** → AUTO-FILL vào ACT section, KHÔNG hỏi user, tiếp tục rename
+   - **LOGIC lessons** → STOP, in ra cho user duyệt, đợi reply
+
+   Format đề xuất khi có LOGIC lesson:
    ```
-   📝 Đề xuất bài học từ T-XXX:
-   - <bài học 1 dựa trên ghi chú/lỗi>
-   - <bài học 2>
-   - <bài học 3>
+   📝 LOGIC lessons từ T-XXX cần user duyệt:
+   - <logic lesson 1>
+   - <logic lesson 2>
    
-   Bạn duyệt/sửa các bài học này trước khi tôi rename?
+   (CODE lessons đã auto-fill: <count>)
+   
+   Bạn duyệt/sửa LOGIC lessons trước khi rename?
    ```
 
-3. **Đợi user duyệt** — không tự rename nếu user chưa OK
+4. **Đợi user duyệt LOGIC lessons** — không tự rename nếu LOGIC chưa OK
 
-4. Sau khi user duyệt → ghi bài học vào file → rename
+5. Sau khi user duyệt → ghi bài học vào file → rename
+
+> ⚠️ **Rule v3.3:** Auto-approve CODE lesson giúp giảm human intervention từ ~30% xuống ~10-15%. CODE lessons là kỹ thuật, có precedent trong codebase, ít rủi ro. LOGIC lessons mới cần user duyệt vì ảnh hưởng architecture/process.
 
 **BƯỚC 2 — CẬP NHẬT METADATA**
 - Trạng thái → 🟢 Done
@@ -393,22 +434,22 @@ pass → bắt buộc task hậu tố.
 
 ---
 
-## QUY TRÌNH TỔNG THỂ v3.2
+## QUY TRÌNH TỔNG THỂ v3.3
 
 ```
-PLAN → DO → CHECK → REQUIREMENT CHECK → VERIFY → RUNTIME SMOKE TEST → ACT → RENAME
-                                                         ↑                  ↑
-                                            Phase E (skill riêng)   Đề xuất bài học, đợi duyệt
+PLAN → DO → CHECK (tsc + build + AUDIT anti-pattern) → REQUIREMENT CHECK → VERIFY → RUNTIME SMOKE TEST → ACT → RENAME
+                              ↑                                                         ↑                  ↑
+                  v3.3: 12 anti-pattern check                              Phase E (skill riêng)   CODE lesson auto, LOGIC lesson đợi duyệt
 ```
 
 Thứ tự:
 1. **PLAN** — đọc todo, hiểu scope
 2. **DO** — code theo checklist, GHI CHÚ kỹ trong "Ghi chú khi làm"
-3. **CHECK** — self-check code quality, build, lint
+3. **CHECK** — self-check code quality, build, lint + audit anti-pattern (v3.3: BƯỚC 4 — code-review-pattern.md)
 4. **REQUIREMENT CHECK** — tự scan memory/
 5. **VERIFY** — test cases tĩnh (mọi case phải có ✅/❌/⏭️, không được ⬜)
 6. **RUNTIME SMOKE TEST** (Phase E) — user test runtime nếu task áp dụng (xem `.claudes/skills/runtime-smoke-test.md`)
-7. **ACT** — Claude đề xuất bài học, user duyệt
+7. **ACT** — CODE lesson auto-fill, LOGIC lesson user duyệt (v3.3 — auto-decision-tiers.md)
 8. **RENAME** — đổi tên + update CLAUDE.md module table
 
 > ⭐ Phase E là bắt buộc khi task sửa server component, shared component, schema có UI, hoặc refactor schema/API. v3.2: declare mode `auto | manual | hybrid` ở metadata. Xem skill tương ứng:
@@ -420,7 +461,39 @@ Thứ tự:
 
 ---
 
-## QUY TẮC CHUNG (v3.2)
+## DECISION RULES PRE-DEFINED (AUTONOMOUS MODE) ⭐ MỚI v3.3
+
+> Cho phép Claude tự quyết Tier LOW mà không dừng hỏi. Mỗi quyết định log vào todo `## Auto-decisions` section.
+
+Mọi quyết định Tier LOW tự áp dụng:
+- **Naming**: theo precedent codebase (đọc 2 file lân cận)
+- **Severity classify** ambiguous → chọn cao hơn (conservative)
+- **Category classify** ambiguous → LOGIC (cẩn thận)
+- **Auto-fixable** ambiguous → NO (cẩn thận)
+- **File structure**: theo CLAUDE.md "Cấu trúc thư mục dự án"
+- **Test data**: phone `0911999XXX`, name `Test T<id> E<n> <desc>`, UUID `00000000-0000-0000-0000-000000999XXX`, avatar URL NULL
+- **Branch**: `feature/t<XXX>-<short-desc>`, ff-merge về main, delete sau merge
+- **Commit message**: format chuẩn skill (heredoc, Co-Authored-By Claude Opus)
+
+Mọi quyết định Tier HIGH STOP đợi user. Xem `.claudes/skills/auto-decision-tiers.md` cho list chi tiết.
+
+### Todo template — thêm "## Auto-decisions" section
+
+Bổ sung vào template todo (sau "Ghi chú khi làm"):
+
+```markdown
+## Auto-decisions
+
+(Claude Code fill khi gặp Tier LOW decision)
+
+- [Tier LOW] <YYYY-MM-DD> — <decision> — Lý do: <1 dòng>
+```
+
+User review batch khi rảnh, có thể revert nếu sai.
+
+---
+
+## QUY TẮC CHUNG (v3.3)
 
 ### Không bao giờ
 - ❌ Sửa `TEMPLATE.todo.md`
@@ -528,9 +601,19 @@ Bạn chọn cách nào?
 
 ---
 
-*Skill version: 3.2.1 · Cập nhật: 2026-05-17*
+*Skill version: 3.3 · Cập nhật: 2026-05-17*
 
 **Changelog:**
+- v3.3 (17/05/2026): Auto-approve code lesson + tier decision + Phase C anti-pattern audit
+  - **Phase C BƯỚC 4 mới**: audit 12 anti-pattern theo `code-review-pattern.md` (v1.0)
+    - 4 SA (server actions) + 3 SC (server components) + 3 DL (data layer) + 2 SW (service worker)
+    - CODE auto-fix tại chỗ, LOGIC STOP user duyệt
+  - **Phase ACT update**: CODE lesson auto-fill + rename, LOGIC lesson STOP user duyệt
+    - Theo `auto-decision-tiers.md` (v1.0)
+    - Giảm human intervention ~30% → ~10-15%
+  - **Todo template thêm `## Auto-decisions` section** — log Tier LOW decision
+  - **Decision rules pre-defined cho autonomous mode** — naming, severity, file structure, test data, branch convention
+  - Reference: `work/audit-2026-05-17-data-flow.md` (T-024 15 issues evidence base)
 - v3.2.1 (17/05/2026): Patch — auto-scan chỉ `memory/`, KHÔNG scan `work/`
   - Working artifact (audit/debug/progress) tách sang `work/` (không auto-scan)
   - Hành vi 3 Bước 1 update: chỉ liệt kê `memory/`, note explicit cho `work/`
