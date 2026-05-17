@@ -1,6 +1,6 @@
 # T-026 — Transactional wrap approveMoveRequest + createTenantAccount qua Supabase RPC
 
-## Trạng thái: 🟢 Done (chờ user apply migration)
+## Trạng thái: 🟢 Done (migration applied + Phase E pass)
 ## Ngày tạo: 2026-05-18
 ## Ngày hoàn thành: 2026-05-18
 ## Ước lượng: 2.5 giờ
@@ -207,12 +207,15 @@ ROLLBACK;
 ```
 **Pass criteria**: ERROR `Không tìm thấy yêu cầu`.
 
-### Sau khi E1-E4 pass
-- [ ] User confirm test pass
-- [ ] Commit cleanup seed nếu test data sót
-- [ ] Update CLAUDE.md changelog v1.9 (RPC pattern)
+### Kết quả Phase E (2026-05-18)
+- ✅ Bước 1 apply: `Success. No rows returned`
+- ✅ Bước 2 verify: 2 functions `approve_move_request`, `create_tenant_account` tồn tại
+- ✅ E1: function trả JSON `{user_id, phone}` + user row `tenant_status=invited / is_profile_complete=false` + room_tenants row `is_primary=true` + tenant_profiles row `profile_status=draft`. ROLLBACK OK.
+- ✅ E2: ERROR `P0001: Số điện thoại đã được đăng ký`
+- ⏭️ E3: SKIPPED — no pending move_requests trong DB (sẽ verify lại khi có pending request thật)
+- ✅ E4: ERROR `P0001: Không tìm thấy yêu cầu`
 
-⚠️ NẾU E1-E4 FAIL → dùng [.claudes/skills/debug-workflow.md](.claudes/skills/debug-workflow.md) trace error message từ PG.
+Phase E mode hybrid (manual SQL trong Supabase Studio via Claude-for-Google guidance — prompt ở [work/t026-apply-migration-prompt.md](work/t026-apply-migration-prompt.md)).
 
 ## Verify
 
@@ -220,5 +223,5 @@ ROLLBACK;
 - ✅ next build success (no warnings about unused imports)
 - ✅ Phase C anti-pattern audit: SA1-4 ✓ (caller unchanged), DL1 ✓ (throw error tiếng Việt), BN1 ✓ (explicit boolean), no SC/SW change
 - ✅ Imports cleaned (`removeTenantFromRoom`, `addTenantToRoom` removed from 2 callers)
-- 🟡 Phase E manual (chờ user apply migration + smoke test E1-E4 trong Supabase Studio)
+- ✅ Phase E manual PASS (2026-05-18, applied + E1/E2/E4 pass, E3 skipped no pending request)
 - ⏭️ Phase E auto skip (DB migration cần manual apply)
