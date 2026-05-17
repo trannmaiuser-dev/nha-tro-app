@@ -1,7 +1,29 @@
-# Skill: Runtime Smoke Test (v1.0)
+# Skill: Runtime Smoke Test (v1.1)
 
 > Phase mới bắt buộc cho mọi task có UI change.
 > Khắc phục lỗ hổng: T-016 verify tĩnh pass nhưng runtime fail 3 bug.
+
+> **v1.1 update (2026-05-17)**: Phase E giờ có 3 mode (auto/manual/hybrid).
+> File này document phần CHUNG + manual mode (default legacy v3.1).
+> Auto mode dùng `phase-e-auto.md`. SQL convention dùng `data-seed-pattern.md`.
+
+---
+
+## Mode declare (v3.2)
+
+Todo metadata BẮT BUỘC declare:
+
+```markdown
+## Phase E mode: auto | manual | hybrid
+```
+
+| Mode | Tool | Skill |
+|---|---|---|
+| `auto` | Claude in Chrome + Supabase Studio | `phase-e-auto.md` |
+| `manual` | User test tay (default legacy) | file này |
+| `hybrid` | Auto seed/verify, manual execute | cả 2 |
+
+Áp dụng từ **T-021 trở đi**. Task done T-001 → T-020 implicit manual mode.
 
 ---
 
@@ -161,3 +183,11 @@ Nếu task có dual-write (như T-016 D10: rooms.tenant_id + room_tenants), SQL 
 
 → Nếu có Phase E từ đầu, T-016 đã catch bug A/B/C trước khi rename done.
 ```
+
+---
+
+*Skill version: 1.1 · Cập nhật: 2026-05-17*
+
+**Changelog:**
+- v1.1 (17/05/2026): Thêm note mode declare (`auto | manual | hybrid`); cross-link `phase-e-auto.md` + `data-seed-pattern.md`. File này document chung + manual mode.
+- v1.0 (16/05/2026): Tạo skill cùng workflow v3.1 sau retrospective T-016.

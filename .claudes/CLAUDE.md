@@ -20,8 +20,10 @@ nha-tro-app/
 ├── .claudes/
 │   ├── CLAUDE.md                  ← file này
 │   └── skills/
-│       ├── todo-workflow.md       ← quy trình PDCA + Requirement Check (v3.1)
-│       ├── runtime-smoke-test.md  ← Phase E format chi tiết (v1.0)
+│       ├── todo-workflow.md       ← quy trình PDCA + Requirement Check (v3.2)
+│       ├── runtime-smoke-test.md  ← Phase E format chung + manual (v1.1)
+│       ├── phase-e-auto.md        ← Phase E auto qua Claude in Chrome (v1.0)
+│       ├── data-seed-pattern.md   ← convention SQL seed/verify/cleanup (v1.0)
 │       ├── debug-workflow.md      ← quy trình tự debug bug runtime (v1.0)
 │       ├── data-layer-pattern.md  ← (sẽ tạo trong Module 3)
 │       └── server-action-pattern.md ← (sẽ tạo trong Module 3)
@@ -32,13 +34,20 @@ nha-tro-app/
 │   ├── retrospective-*.md            (bài học từ các retrospective)
 │   └── <chu-de>-notes.md             (ghi chú khác nếu có)
 │
-├── tasks/
+├── task/                          ← lưu ý: singular (legacy đặt tên)
 │   ├── README.md
 │   ├── template/TEMPLATE.todo.md
-│   ├── todo/                      ← task đang làm
-│   └── done/                      ← task xong
+│   ├── todo/
+│   │   ├── todo.021-fix-onboarding-and-ui.md
+│   │   └── 021/                   ← v3.2: subfolder cho Phase E auto SQL
+│   │       ├── seed.sql
+│   │       └── verify.sql
+│   └── done/
+│       └── 021/                   ← di chuyển nguyên folder khi rename
+│           ├── seed.sql
+│           └── verify.sql
 │
-└── src/                           ← code Next.js
+└── (root)                         ← Next.js code: app/, components/, lib/, types/
 ```
 
 ### ⚠️ Quy tắc QUAN TRỌNG về memory/
@@ -198,7 +207,11 @@ Mỗi task có file `tasks/todo/todo.XXX-ten-task.md` theo PDCA + Requirement Ch
 3. **CHECK** — self-check code quality
 4. **REQUIREMENT CHECK** — tự scan `memory/`, đối chiếu nghiệp vụ
 5. **VERIFY** — test cases tĩnh (✅/❌/⏭️, không ⬜)
-6. **RUNTIME SMOKE TEST (Phase E)** ⭐ MỚI v3.1 — user test runtime cho task có UI/schema change. Xem `.claudes/skills/runtime-smoke-test.md`
+6. **RUNTIME SMOKE TEST (Phase E)** ⭐ v3.1, MỞ RỘNG v3.2 — 3 mode declare ở todo metadata:
+   - `auto` → `.claudes/skills/phase-e-auto.md` (Claude in Chrome + Supabase Studio)
+   - `manual` → `.claudes/skills/runtime-smoke-test.md` (user test tay, legacy)
+   - `hybrid` → kết hợp 2 file trên
+   Áp dụng từ T-021 trở đi. Task done T-001 → T-020 giữ implicit manual mode.
 7. **ACT** — Claude đề xuất bài học, user duyệt
 8. **RENAME** — đổi tên + auto-update bảng module trong CLAUDE.md
 
@@ -247,8 +260,10 @@ Xem chi tiết tại `.claudes/skills/todo-workflow.md` v3.1.
 | Loại | Vị trí | Khi nào |
 |---|---|---|
 | Context tổng | `.claudes/CLAUDE.md` | Mỗi session mới |
-| Quy trình PDCA | `.claudes/skills/todo-workflow.md` (v3.1) | Khi làm task |
-| Phase E format | `.claudes/skills/runtime-smoke-test.md` (v1.0) | Khi viết Phase E cho task có UI change |
+| Quy trình PDCA | `.claudes/skills/todo-workflow.md` (v3.2) | Khi làm task |
+| Phase E format chung + manual | `.claudes/skills/runtime-smoke-test.md` (v1.1) | Khi viết Phase E cho task có UI change |
+| Phase E auto | `.claudes/skills/phase-e-auto.md` (v1.0) | Task có `mode: auto` (Claude in Chrome) |
+| Data seed pattern | `.claudes/skills/data-seed-pattern.md` (v1.0) | Mọi task có seed/verify SQL |
 | Debug bug runtime | `.claudes/skills/debug-workflow.md` (v1.0) | Khi Phase E fail, user paste prompt-debug-from-symptom |
 | Pattern data layer | `.claudes/skills/data-layer-pattern.md` | Khi code lib/db/ (sẽ có) |
 | Pattern server action | `.claudes/skills/server-action-pattern.md` | Khi code actions.ts (sẽ có) |
@@ -258,9 +273,16 @@ Xem chi tiết tại `.claudes/skills/todo-workflow.md` v3.1.
 
 ---
 
-*CLAUDE.md version: 1.4 · Cập nhật: 2026-05-17*
+*CLAUDE.md version: 1.5 · Cập nhật: 2026-05-17*
 
 **Changelog:**
+- v1.5 (17/05/2026): Workflow v3.2 — Phase E auto support
+  - Thêm 2 skill: `phase-e-auto.md` (v1.0) + `data-seed-pattern.md` (v1.0)
+  - Bump `todo-workflow.md` v3.1 → v3.2 (Phase C build bắt buộc, mode declare, amend pattern)
+  - Bump `runtime-smoke-test.md` v1.0 → v1.1 (note mode declare + cross-link)
+  - Cấu trúc thư mục cập nhật: `task/<id>/seed.sql + verify.sql` cho Phase E auto
+  - Bảng "File quan trọng" thêm 2 row skill mới
+  - Áp dụng từ T-021 trở đi (eat-our-own-dogfood); T-001 → T-020 giữ implicit manual mode
 - v1.4 (17/05/2026): T-022 dev impersonate endpoint cho Phase E auto
   - Thêm subsection "Dev tooling" trong "Stack kỹ thuật" với note `/api/dev/impersonate`
   - Workflow v3.2 (Phase E auto, sắp viết) sẽ reference endpoint này

@@ -138,12 +138,18 @@ Với từng mục: ✅ / ❌ / ⚠️
 
 **BƯỚC 2 — KIỂM TRA DELIVERABLES**
 
-**BƯỚC 3 — CHẠY CHECK**
+**BƯỚC 3 — CHẠY CHECK (BẮT BUỘC v3.2)**
 
-- `npm run build` không lỗi
-- `npm run lint` ghi warning
-- `.gitignore` đúng
-- Không hardcode env
+1. `npx tsc --noEmit` exit 0
+2. `npm run build` **PHẢI PASS** (KHÔNG skip với lý do env-dependent)
+3. `npm run lint` warning OK, error fail
+4. `.gitignore` đúng
+5. Không hardcode env
+
+> ⚠️ **Rule v3.2:** `tsc --noEmit` KHÔNG catch ESLint errors. T-021 phát hiện
+> `react/no-unescaped-entities` sau khi tsc pass. v3.2 yêu cầu build pass trước
+> khi commit. Nếu env thiếu (Supabase URL...), tạo `.env.local` từ `.env.example`
+> để build chạy được — KHÔNG bỏ qua bước này.
 
 **BƯỚC 4 — VERIFY TEST CASES** ⭐ MỚI v3.0
 
@@ -190,9 +196,26 @@ KHÔNG rename, KHÔNG tự sửa. Đề xuất tạo `todo.XXXb-fix-*.md`.
 
 ---
 
-## HÀNH VI 4b: PHASE E — RUNTIME SMOKE TEST ⭐ MỚI v3.1
+## HÀNH VI 4b: PHASE E — RUNTIME SMOKE TEST ⭐ MỚI v3.1, MỞ RỘNG v3.2
 
 > Bắt buộc cho task có UI change. Khắc phục lỗ hổng "verify tĩnh pass nhưng runtime fail" (phát hiện qua T-016).
+
+### Mode declare (v3.2)
+
+Todo metadata BẮT BUỘC declare 1 trong 3 mode:
+
+```markdown
+## Phase E mode: auto | manual | hybrid
+```
+
+| Mode | Khi nào | Tool | Skill chi tiết |
+|---|---|---|---|
+| `auto` | UI change + data flow rõ + reproducible | Claude in Chrome + Supabase Studio | `phase-e-auto.md` (v1.0) |
+| `manual` | Visual design / responsive / camera / payment pháp lý | User test tay (legacy v3.1) | `runtime-smoke-test.md` |
+| `hybrid` | UX cần human + data setup phức tạp | Auto seed/verify, manual execute | Cả 2 skill trên |
+
+Áp dụng từ **T-021 trở đi** (eat-our-own-dogfood). Task done T-001 → T-020 giữ
+nguyên implicit manual mode — KHÔNG retroactive.
 
 ### Khi áp dụng
 
@@ -211,12 +234,18 @@ KHÔNG bắt buộc khi:
 
 ### Format Phase E trong file todo
 
-Thêm section sau Phase D verify, trước ACT — xem template chi tiết trong `.claudes/skills/runtime-smoke-test.md`:
+Section đặt sau Phase D verify, trước ACT. Chi tiết template tuỳ mode:
+
+- `mode: manual` → format trong `.claudes/skills/runtime-smoke-test.md`
+- `mode: auto` → format trong `.claudes/skills/phase-e-auto.md` (kèm `data-seed-pattern.md` cho SQL convention)
+- `mode: hybrid` → kết hợp 2 file trên
+
+Khung chung:
 
 ```markdown
-## Phase E — Runtime Smoke Test
+## Phase E — Runtime Smoke Test (mode: manual | auto | hybrid)
 
-⚠️ User test bắt buộc trước khi rename todo → done.
+⚠️ Bắt buộc pass trước khi rename todo → done.
 
 ### Smoke test cases
 | # | Test | Cách làm | Pass criteria |
@@ -234,6 +263,9 @@ Thêm section sau Phase D verify, trước ACT — xem template chi tiết trong
 - [ ] E3 pass
 - [ ] Không phát hiện regression task cũ
 ```
+
+Mode `auto`/`hybrid` BẮT BUỘC có thêm `task/<task-id>/seed.sql` + `verify.sql`
+(xem `data-seed-pattern.md` cho convention).
 
 ### Test case selection (3 rules)
 1. **Happy path** — cover 80% use case
@@ -324,7 +356,37 @@ done: T-XXX <tên ngắn>
 
 ---
 
-## QUY TRÌNH TỔNG THỂ v3.1
+## AMEND PATTERN ⭐ MỚI v3.2
+
+> Khi nào amend commit hiện tại vs khi nào tạo task hậu tố.
+
+### Phase C/D fail TRƯỚC commit đầu tiên
+→ Fix tại chỗ, KHÔNG tạo task hậu tố. Vẫn cùng todo, cùng commit.
+
+### Phase C/D fail SAU commit + push
+
+| Tình huống | Hành động |
+|---|---|
+| Cùng session, chưa rời flow | `git commit --amend --no-edit` + `git push --force-with-lease` |
+| Khác session, đã ngừng work | Tạo task hậu tố `T-XXXa` (cosmetic) hoặc `T-XXXb` (logic) |
+
+### Phase E fail SAU khi Phase A-D pass
+
+→ Luôn tạo task hậu tố `T-XXXb/c/d`, dùng skill `debug-workflow.md`. KHÔNG amend
+commit cũ vì:
+- Bug đã làm phiền user (mất thời gian test)
+- Cần audit trail riêng để retrospective sau
+- 1 debug session = 1 commit (rule v3.1)
+
+### Bài học từ T-021
+
+ESLint `react/no-unescaped-entities` phát hiện ở Phase C sau tsc pass. Amend trong
+cùng task hợp lý vì chưa rời flow (chưa qua Phase E). Nếu phát hiện sau Phase E
+pass → bắt buộc task hậu tố.
+
+---
+
+## QUY TRÌNH TỔNG THỂ v3.2
 
 ```
 PLAN → DO → CHECK → REQUIREMENT CHECK → VERIFY → RUNTIME SMOKE TEST → ACT → RENAME
@@ -342,11 +404,16 @@ Thứ tự:
 7. **ACT** — Claude đề xuất bài học, user duyệt
 8. **RENAME** — đổi tên + update CLAUDE.md module table
 
-> ⭐ Phase E là bắt buộc khi task sửa server component, shared component, schema có UI, hoặc refactor schema/API. Xem rule chi tiết trong skill `runtime-smoke-test.md`. Nếu task không áp dụng → ghi `Phase E — N/A` với 1 dòng lý do.
+> ⭐ Phase E là bắt buộc khi task sửa server component, shared component, schema có UI, hoặc refactor schema/API. v3.2: declare mode `auto | manual | hybrid` ở metadata. Xem skill tương ứng:
+> - `runtime-smoke-test.md` — chung + manual mode
+> - `phase-e-auto.md` — auto mode (Claude in Chrome)
+> - `data-seed-pattern.md` — SQL seed/verify convention
+>
+> Nếu task không áp dụng → ghi `Phase E — N/A` với 1 dòng lý do.
 
 ---
 
-## QUY TẮC CHUNG (v3.1)
+## QUY TẮC CHUNG (v3.2)
 
 ### Không bao giờ
 - ❌ Sửa `TEMPLATE.todo.md`
@@ -355,8 +422,11 @@ Thứ tự:
 - ❌ Verify mà KHÔNG chạy Requirement Check trước
 - ❌ **Rename khi ACT "Bài học rút ra" trống** (RULE v3.0)
 - ❌ **Kết luận verify pass khi còn test case ⬜** (RULE v3.0)
-- ❌ **Rename todo → done khi task áp dụng Phase E nhưng smoke test chưa pass tất cả** (RULE MỚI v3.1)
-- ❌ **Sửa todo gốc khi bug runtime phát hiện sau Phase E — phải tạo task hậu tố b/c/d** (RULE MỚI v3.1)
+- ❌ **Rename todo → done khi task áp dụng Phase E nhưng smoke test chưa pass tất cả** (RULE v3.1)
+- ❌ **Sửa todo gốc khi bug runtime phát hiện sau Phase E — phải tạo task hậu tố b/c/d** (RULE v3.1)
+- ❌ **Skip `npm run build` với lý do "env-dependent" — phải fix .env.local + chạy** (RULE MỚI v3.2)
+- ❌ **Áp dụng Phase E auto cho task done T-001 → T-020 retroactive — chỉ T-021 trở đi** (RULE MỚI v3.2)
+- ❌ **Amend commit cũ khi bug phát hiện sau Phase E pass — phải task hậu tố** (RULE MỚI v3.2)
 - ❌ Code việc ngoài scope
 - ❌ Bỏ qua dependency chưa done
 - ❌ Dùng bảng mapping cứng cho memory/ — LUÔN scan động
@@ -369,7 +439,10 @@ Thứ tự:
 - ✅ **Sau rename: update bảng module trong CLAUDE.md** (RULE v3.0)
 - ✅ **Mọi test case kết thúc với ✅/❌/⏭️, không được ⬜** (RULE v3.0)
 - ✅ **Task có UI change → áp dụng Phase E (Hành vi 4b); task không áp dụng → ghi `Phase E — N/A` + lý do** (RULE MỚI v3.1)
-- ✅ **Bug runtime sau Phase E → chạy skill `debug-workflow.md`, fix bằng task hậu tố (T-XXXb/c/d), 1 debug session = 1 commit** (RULE MỚI v3.1)
+- ✅ **Bug runtime sau Phase E → chạy skill `debug-workflow.md`, fix bằng task hậu tố (T-XXXb/c/d), 1 debug session = 1 commit** (RULE v3.1)
+- ✅ **Phase C `npm run build` PHẢI pass — fix .env.local nếu env thiếu** (RULE MỚI v3.2)
+- ✅ **Phase E declare mode `auto | manual | hybrid` ở todo metadata** (RULE MỚI v3.2)
+- ✅ **Phase E auto: tạo `task/<id>/seed.sql` + `verify.sql` ngay từ Phase D** (RULE MỚI v3.2)
 - ✅ Báo cáo tiếng Việt + emoji
 - ✅ Liệt kê file thay đổi sau mỗi lần code
 - ✅ Task phát sinh ngoài scope → ghi vào "Task phát sinh"
@@ -448,9 +521,15 @@ Bạn chọn cách nào?
 
 ---
 
-*Skill version: 3.1 · Cập nhật: 2026-05-16*
+*Skill version: 3.2 · Cập nhật: 2026-05-17*
 
 **Changelog:**
+- v3.2 (17/05/2026): Sau pilot Phase E auto (T-021, T-022)
+  - **Phase C bắt buộc `npm run build`** (không skip env-dependent) — T-021 phát hiện ESLint error sau tsc pass
+  - **Phase E mode declare ở todo metadata**: `auto | manual | hybrid`
+  - Cross-link 2 skill mới: `phase-e-auto.md` (Claude in Chrome) + `data-seed-pattern.md` (SQL convention)
+  - Áp dụng từ T-021 trở đi (eat-our-own-dogfood). Task done T-001 → T-020 giữ implicit manual mode, KHÔNG retroactive
+  - **Amend pattern formalize**: Phase C/D fail trước commit → fix inline; cùng session sau commit → `--amend` + `--force-with-lease`; Phase E fail → task hậu tố b/c/d (1 debug session = 1 commit, rule v3.1)
 - v3.1 (16/05/2026): Sau retrospective T-016 (verify tĩnh pass nhưng runtime fail 3 bug)
   - Thêm Phase E — Runtime Smoke Test (Hành vi 4b) — bắt buộc cho task có UI change
   - Rule: cấm rename khi task áp dụng Phase E mà smoke test chưa pass tất cả
