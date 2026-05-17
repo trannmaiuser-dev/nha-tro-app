@@ -3,6 +3,8 @@ import { getAllRoomsWithTenants } from '@/lib/db/rooms'
 import { getSetting } from '@/lib/db/settings'
 import RoomList from '@/components/rooms/RoomList'
 
+export const dynamic = 'force-dynamic'
+
 export default async function RoomsPage() {
   const [rooms, defaultElectricityRate] = await Promise.all([
     getAllRoomsWithTenants(),

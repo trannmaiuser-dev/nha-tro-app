@@ -27,6 +27,8 @@ export async function createMoveRequestAction(input: unknown): Promise<Result> {
 
     await createMoveRequest(user.userId, room.id, parsed.data.requested_date, parsed.data.reason)
     revalidatePath('/tenant/move-out')
+    revalidatePath('/admin/move-requests')
+    revalidatePath('/notifications')
     return { success: true, data: undefined }
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : 'Không thể gửi yêu cầu' }
@@ -38,6 +40,7 @@ export async function cancelMoveRequestAction(requestId: string): Promise<Result
     const user = await verifyTenant()
     await cancelMoveRequest(requestId, user.userId)
     revalidatePath('/tenant/move-out')
+    revalidatePath('/admin/move-requests')
     return { success: true, data: undefined }
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : 'Không thể hủy yêu cầu' }

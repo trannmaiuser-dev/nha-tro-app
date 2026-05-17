@@ -4,6 +4,8 @@ import { getAllRoomsWithTenants } from '@/lib/db/rooms'
 import TenantList from '@/components/tenants/TenantList'
 import type { SelectableRoom } from '@/components/tenants/AddTenantDialog'
 
+export const dynamic = 'force-dynamic'
+
 export default async function AdminTenantsPage() {
   const [tenants, roomsWithTenants] = await Promise.all([
     getAllTenants(),

@@ -1,5 +1,5 @@
 // Aloha Tran Home — Service Worker
-const CACHE = 'aloha-v5'
+const CACHE = 'aloha-v6'
 const STATIC = ['/icons/icon-192x192.svg', '/manifest.json']
 
 self.addEventListener('install', (e) => {
@@ -21,6 +21,9 @@ self.addEventListener('fetch', (e) => {
   // Never cache Next.js built assets or HMR files — let them always hit network
   if (e.request.url.includes('/_next/')) return
   if (e.request.url.includes('.hot-update.')) return
+  // Skip navigation/HTML — let revalidatePath + force-dynamic work (T-025 strategy A)
+  if (e.request.mode === 'navigate') return
+  if (e.request.destination === 'document') return
   // Bypass SW cache on hard reload (Ctrl+Shift+R) — let browser fetch fresh
   if (e.request.cache === 'reload' || e.request.cache === 'no-store') return
   e.respondWith(
