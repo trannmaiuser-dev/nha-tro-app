@@ -27,6 +27,7 @@ nha-tro-app/
 │       ├── debug-workflow.md      ← quy trình tự debug bug runtime (v1.0)
 │       ├── code-review-pattern.md ← 12 anti-pattern check Phase C v3.3 (v1.0)
 │       ├── auto-decision-tiers.md ← Tier LOW auto vs Tier HIGH user duyệt (v1.0)
+│       ├── proactive-partner.md   ← Cách stop có artifact + options + recommend (v1.0)
 │       ├── data-layer-pattern.md  ← (sẽ tạo trong Module 3)
 │       └── server-action-pattern.md ← (sẽ tạo trong Module 3)
 │
@@ -284,6 +285,7 @@ Xem chi tiết tại `.claudes/skills/todo-workflow.md` v3.1.
 | Debug bug runtime | `.claudes/skills/debug-workflow.md` (v1.0) | Khi Phase E fail, user paste prompt-debug-from-symptom |
 | Code review pattern | `.claudes/skills/code-review-pattern.md` (v1.0) | Phase C v3.3 BƯỚC 4 — audit 12 anti-pattern |
 | Auto-decision tiers | `.claudes/skills/auto-decision-tiers.md` (v1.0) | Phase ACT + classify decision LOW/HIGH |
+| Proactive partner | `.claudes/skills/proactive-partner.md` (v1.0) | Khi pause cần user action — artifact + options + recommend |
 | Pattern data layer | `.claudes/skills/data-layer-pattern.md` | Khi code lib/db/ (sẽ có) |
 | Pattern server action | `.claudes/skills/server-action-pattern.md` | Khi code actions.ts (sẽ có) |
 | Yêu cầu tổng | `memory/nha_tro_app_requirements.md` | Requirement Check |
@@ -293,9 +295,13 @@ Xem chi tiết tại `.claudes/skills/todo-workflow.md` v3.1.
 
 ---
 
-*CLAUDE.md version: 1.7 · Cập nhật: 2026-05-17*
+*CLAUDE.md version: 1.8 · Cập nhật: 2026-05-17*
 
 **Changelog:**
+- v1.8 (17/05/2026): Thêm skill `proactive-partner.md` (v1.0)
+  - Pattern "stop có artifact + options + recommend" từ session 2026-05-17
+  - Cross-link với `auto-decision-tiers.md` (WHEN) → proactive-partner (HOW)
+  - 4 proactive stops trong session (SW strategy + Phase E ×2 + next-action) → ~12% intervention
 - v1.7 (17/05/2026): Workflow v3.3 — auto-approve code lesson + Phase C anti-pattern audit
   - Bump `todo-workflow.md` v3.2.1 → v3.3
     - Phase C BƯỚC 4: audit 12 anti-pattern (code-review-pattern.md)
