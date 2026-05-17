@@ -3,6 +3,8 @@ import { getCurrentUser } from '@/lib/auth'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import TenantSummaryPage from '@/components/TenantSummaryPage'
 
+export const dynamic = 'force-dynamic'
+
 export default async function TenantProfilePage({ params }: { params: { userId: string } }) {
   const user = await getCurrentUser()
   if (!user) redirect('/login')

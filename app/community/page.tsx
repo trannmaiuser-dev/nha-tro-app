@@ -4,6 +4,8 @@ import { createServerSupabaseClient } from '@/lib/supabase-server'
 import CommunityPage from '@/components/CommunityPage'
 import type { RawCommunityEventRow, CommunityEventForUI } from '@/lib/types/community'
 
+export const dynamic = 'force-dynamic'
+
 const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000
 
 export default async function CommunityPageRoute() {

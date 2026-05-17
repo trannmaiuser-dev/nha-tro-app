@@ -32,6 +32,7 @@ export async function saveMeterReadingsAction(input: unknown): Promise<Result> {
 
     revalidatePath('/admin/utilities')
     revalidatePath('/admin/finance/invoices')
+    revalidatePath('/admin/finance/report')
     return { success: true }
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : 'Lỗi khi lưu' }
@@ -51,6 +52,8 @@ export async function updateSingleMeterReadingAction(
     await updateMeterReadingWithAudit(id, changes, reason, user.userId)
 
     revalidatePath('/admin/utilities')
+    revalidatePath('/admin/finance/invoices')
+    revalidatePath('/admin/finance/report')
     return { success: true }
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : 'Lỗi khi sửa' }

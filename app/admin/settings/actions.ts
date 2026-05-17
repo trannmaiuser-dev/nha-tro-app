@@ -46,6 +46,7 @@ export async function updateSettingsAction(
 
     revalidatePath('/admin/settings')
     revalidatePath('/admin/finance')
+    revalidatePath('/admin/finance/report')
     revalidatePath('/admin/utilities')
     revalidatePath('/rooms')
     return { success: true }

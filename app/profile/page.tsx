@@ -3,6 +3,8 @@ import { getCurrentUser } from '@/lib/auth'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import ProfileSelfPage from '@/components/ProfileSelfPage'
 
+export const dynamic = 'force-dynamic'
+
 export default async function ProfileRoute() {
   const user = await getCurrentUser()
   if (!user) redirect('/login')

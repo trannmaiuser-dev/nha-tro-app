@@ -22,6 +22,7 @@ export async function updateProfileAction(input: unknown): Promise<Result> {
 
     await updateTenantProfile(user.userId, parsed.data)
     revalidatePath('/profile')
+    revalidatePath('/admin/tenants')
     return { success: true, data: undefined }
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : 'Không thể cập nhật' }
@@ -40,6 +41,7 @@ export async function addEmergencyContactAction(input: unknown): Promise<Result>
 
     await addEmergencyContact(profile.id, parsed.data)
     revalidatePath('/profile')
+    revalidatePath('/admin/tenants')
     return { success: true, data: undefined }
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : 'Không thể thêm liên hệ' }
@@ -54,6 +56,7 @@ export async function addBankAccountAction(input: unknown): Promise<Result> {
 
     await addBankAccount(user.userId, parsed.data)
     revalidatePath('/profile')
+    revalidatePath('/admin/tenants')
     return { success: true, data: undefined }
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : 'Không thể thêm tài khoản' }
@@ -65,6 +68,7 @@ export async function completeProfileAction(): Promise<Result<boolean>> {
     const user    = await verifyTenant()
     const done    = await checkProfileComplete(user.userId)
     revalidatePath('/profile')
+    revalidatePath('/admin/tenants')
     return { success: true, data: done }
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : 'Lỗi kiểm tra hồ sơ' }

@@ -22,6 +22,7 @@ export async function createGuestAction(input: unknown): Promise<Result> {
 
     await createGuest(user.userId, room.id, parsed.data)
     revalidatePath('/tenant/guests')
+    revalidatePath('/notifications')
     return { success: true, data: undefined }
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : 'Không thể tạo báo cáo' }

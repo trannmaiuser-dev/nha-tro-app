@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
@@ -28,6 +29,7 @@ const STATUS_LABEL: Record<string, string> = {
 }
 
 export default function AdminMoveRequestsPage() {
+  const router = useRouter()
   const [requests,    setRequests]    = useState<MoveRequest[]>([])
   const [filter,      setFilter]      = useState<Filter>('all')
   const [loading,     setLoading]     = useState(true)
@@ -54,6 +56,7 @@ export default function AdminMoveRequestsPage() {
     if (!res.success) { toast.error(res.error); return }
     setRequests(prev => prev.map(r => r.id === approving ? { ...r, status: 'approved' } : r))
     toast.success('Đã duyệt yêu cầu chuyển đi')
+    router.refresh()
   }
 
   async function handleReject() {
@@ -66,6 +69,7 @@ export default function AdminMoveRequestsPage() {
     setRejecting(null)
     setRejectNote('')
     toast.success('Đã từ chối yêu cầu')
+    router.refresh()
   }
 
   return (
