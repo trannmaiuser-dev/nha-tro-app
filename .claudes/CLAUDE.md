@@ -153,7 +153,7 @@ Nếu cần component mới chưa có → tạo trong `components/ui/` để tá
 | # | Module | Route | Giai đoạn | Trạng thái | Tiến độ |
 |---|---|---|---|---|---|
 | 1 | Quản lý phòng & khách thuê | `/admin/rooms`, `/admin/tenants` | 1 | 🟢 Done (T-001 → T-010 + T-016/c/d + T-021 onboarding optional fix) | T-016b drop column + T-023 avatar wizard DB URL còn pending |
-| 2 | Thu chi & hóa đơn | `/admin/finance` | 2 | 🟡 Cơ bản done, chờ T-017 cảnh báo nợ | T-011 → T-015 + T-014b done (notification đầy đủ) |
+| 2 | Thu chi & hóa đơn | `/admin/finance` | 2 | 🟢 Done (T-017 cảnh báo nợ merged, chờ migration v19 apply) | T-011 → T-015 + T-014b + T-017 done (debt warning + push notification) |
 | 3 | Giấy tờ | `/admin/documents` | 3 | 🔲 Chưa làm | — |
 | 4 | Camera AI | `/admin/camera` | 5 | 🔲 Chưa làm | — |
 | 5 | Thông báo nội bộ | (tích hợp) | 2 | 🟢 Done cho Module 2 | move-requests + payment-proofs đã có notify |
