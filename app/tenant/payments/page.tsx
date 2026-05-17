@@ -2,6 +2,8 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { getPaymentProofsByTenant } from '@/lib/db/payment-proofs'
+import { getRoomsByTenant } from '@/lib/db/room-tenants'
+import { getOverdueInvoicesByRoom } from '@/lib/db/invoices'
 import TenantPaymentsClient from './TenantPaymentsClient'
 
 export const dynamic = 'force-dynamic'
@@ -11,7 +13,15 @@ export default async function TenantPaymentsPage() {
   if (!user) redirect('/login')
   if (user.role !== 'tenant') redirect('/home')
 
-  const proofs = await getPaymentProofsByTenant(user.userId)
+  // T-017: lấy overdue invoices của phòng tenant (banner đỏ đầu page).
+  // KHÔNG gọi processDebtForRoom ở đây — dashboard đã trigger sync, /tenant/payments là read-only view.
+  const [proofs, memberships] = await Promise.all([
+    getPaymentProofsByTenant(user.userId),
+    getRoomsByTenant(user.userId, true),
+  ])
+  const roomId = memberships[0]?.room?.id ?? null
+  const roomName = memberships[0]?.room?.name
+  const overdueInvoices = roomId ? await getOverdueInvoicesByRoom(roomId) : []
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-primary-50 to-white pb-24">
@@ -28,7 +38,7 @@ export default async function TenantPaymentsPage() {
       </header>
 
       <main className="max-w-md mx-auto px-4 pt-6">
-        <TenantPaymentsClient proofs={proofs} />
+        <TenantPaymentsClient proofs={proofs} overdueInvoices={overdueInvoices} roomName={roomName} />
       </main>
     </div>
   )

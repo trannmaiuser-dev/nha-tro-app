@@ -3,6 +3,8 @@ import { getCurrentUser } from '@/lib/auth'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { getAllRoomsWithTenants } from '@/lib/db/rooms'
 import { getRoomsByTenant, getTenantsByRoom } from '@/lib/db/room-tenants'
+import { getOverdueInvoicesByRoom, type OverdueInvoice } from '@/lib/db/invoices'
+import { processDebtForRoom } from '@/lib/debt-notify'
 import OwnerDashboard from '@/components/OwnerDashboard'
 import TenantDashboard from '@/components/TenantDashboard'
 import PushNotificationSetup from '@/components/PushNotificationSetup'
@@ -32,6 +34,7 @@ export default async function DashboardPage() {
   let ownerRooms: RoomWithTenants[]   = []
   let tenantRoom: TenantRoomShape | null = null
   let otherTenants: Array<{ user_id: string; full_name: string; is_primary: boolean }> = []
+  let overdueInvoices: OverdueInvoice[] = []
 
   if (user.role === 'owner') {
     ownerRooms = await getAllRoomsWithTenants()
@@ -55,6 +58,11 @@ export default async function DashboardPage() {
           full_name:  t.user!.full_name,
           is_primary: t.is_primary,
         }))
+
+      // T-017: sync debt + dispatch push nếu có invoice overdue mới (on-page check).
+      // Best-effort, không block render (processDebtForRoom nuốt error).
+      await processDebtForRoom(roomId)
+      overdueInvoices = await getOverdueInvoicesByRoom(roomId)
     }
   }
 
@@ -97,6 +105,7 @@ export default async function DashboardPage() {
           payments={payments}
           notifications={notifications ?? []}
           otherTenants={otherTenants}
+          overdueInvoices={overdueInvoices}
         />
       )}
     </>

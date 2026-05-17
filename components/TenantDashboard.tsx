@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import type { AuthPayload } from '@/types'
+import type { OverdueInvoice } from '@/lib/db/invoices'
+import DebtBanner from '@/components/DebtBanner'
 
 interface Room {
   id: string
@@ -43,9 +45,11 @@ interface Props {
   notifications: Notification[]
   /** Người ở cùng phòng (T-016 Phase C — UC-02). Chỉ tên, không SĐT. */
   otherTenants?: CoTenant[]
+  /** Hóa đơn quá hạn (T-017 — UC-05). Empty array = không có nợ. */
+  overdueInvoices?: OverdueInvoice[]
 }
 
-export default function TenantDashboard({ user, room, payments, notifications, otherTenants = [] }: Props) {
+export default function TenantDashboard({ user, room, payments, notifications, otherTenants = [], overdueInvoices = [] }: Props) {
   const router = useRouter()
   const [sending, setSending]   = useState<string | null>(null)
   const [toast, setToast]       = useState('')
@@ -148,6 +152,11 @@ export default function TenantDashboard({ user, room, payments, notifications, o
             </button>
           ))}
         </div>
+
+        {/* T-017: Debt banner — hiện đầu trang khi có hóa đơn quá hạn */}
+        {overdueInvoices.length > 0 && (
+          <DebtBanner overdueInvoices={overdueInvoices} roomName={room?.name} />
+        )}
 
         {activeTab === 'home' && (
           <div className="space-y-4 animate-fade-in">

@@ -4,19 +4,30 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { PlusIcon } from 'lucide-react'
 import type { PaymentProof } from '@/types'
+import type { OverdueInvoice } from '@/lib/db/invoices'
+import DebtBanner from '@/components/DebtBanner'
 import PaymentProofCard from './PaymentProofCard'
 import PaymentProofForm from './PaymentProofForm'
 
 interface Props {
-  proofs: PaymentProof[]
+  proofs:           PaymentProof[]
+  overdueInvoices?: OverdueInvoice[]
+  roomName?:        string
 }
 
-export default function TenantPaymentsClient({ proofs }: Props) {
+export default function TenantPaymentsClient({ proofs, overdueInvoices = [], roomName }: Props) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
 
   return (
     <>
+      {/* T-017: Debt banner — đầu page, không có pay button (đã ở trang này) */}
+      {overdueInvoices.length > 0 && (
+        <div className="mb-4">
+          <DebtBanner overdueInvoices={overdueInvoices} roomName={roomName} showPayButton={false} />
+        </div>
+      )}
+
       {proofs.length === 0 ? (
         <div className="text-center py-12 text-gray-400">
           <p className="text-5xl mb-3">💸</p>

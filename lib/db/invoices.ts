@@ -295,3 +295,104 @@ export async function deleteInvoice(id: string): Promise<void> {
   const { error } = await sb.from('invoices').delete().eq('id', id)
   if (error) throw new Error('Không thể xóa hóa đơn')
 }
+
+/* ──────────── T-017 Debt warning helpers (UC-05) ──────────── */
+
+export interface OverdueInvoice {
+  id:                    string
+  room_id:               string
+  month:                 number
+  year:                  number
+  total:                 number
+  paid_amount:           number
+  due_date:              string
+  has_debt:              boolean
+  last_debt_notified_at: string | null
+}
+
+/**
+ * Check 1 invoice có quá hạn không (chưa paid + due_date + threshold đã qua).
+ */
+export function isInvoiceOverdue(
+  invoice: { status: string; due_date: string; total: number; paid_amount: number },
+  thresholdDays: number,
+): boolean {
+  if (invoice.status === 'paid') return false
+  if ((invoice.paid_amount ?? 0) >= invoice.total) return false
+  const dueMs = new Date(invoice.due_date).getTime()
+  const thresholdMs = dueMs + thresholdDays * 86400_000
+  return Date.now() > thresholdMs
+}
+
+/**
+ * Sync `has_debt` flag cho toàn bộ invoices của 1 phòng dựa trên threshold setting.
+ * Idempotent: chạy nhiều lần không đổi DB nếu state đã đúng.
+ * Trả về count marked/cleared để observability.
+ */
+export async function syncDebtForRoom(roomId: string, thresholdDays: number): Promise<{ marked: number; cleared: number }> {
+  const sb = createServerSupabaseClient()
+  const { data: invoices } = await sb
+    .from('invoices')
+    .select('id, status, due_date, total, paid_amount, has_debt')
+    .eq('room_id', roomId)
+    .neq('status', 'paid')
+
+  let marked = 0
+  let cleared = 0
+  for (const inv of invoices ?? []) {
+    const overdue = isInvoiceOverdue(inv, thresholdDays)
+    if (overdue && !inv.has_debt) {
+      await sb.from('invoices').update({ has_debt: true }).eq('id', inv.id)
+      marked++
+    } else if (!overdue && inv.has_debt) {
+      await sb.from('invoices').update({ has_debt: false, last_debt_notified_at: null }).eq('id', inv.id)
+      cleared++
+    }
+  }
+  return { marked, cleared }
+}
+
+/**
+ * Lấy danh sách invoices đang has_debt cho 1 phòng (sorted by due_date asc).
+ */
+export async function getOverdueInvoicesByRoom(roomId: string): Promise<OverdueInvoice[]> {
+  const sb = createServerSupabaseClient()
+  const { data } = await sb
+    .from('invoices')
+    .select('id, room_id, month, year, total, paid_amount, due_date, has_debt, last_debt_notified_at')
+    .eq('room_id', roomId)
+    .eq('has_debt', true)
+    .order('due_date', { ascending: true })
+  return (data ?? []) as OverdueInvoice[]
+}
+
+/**
+ * Check phòng có nợ không (boolean shortcut).
+ */
+export async function hasRoomDebt(roomId: string): Promise<boolean> {
+  const sb = createServerSupabaseClient()
+  const { count } = await sb
+    .from('invoices')
+    .select('id', { count: 'exact', head: true })
+    .eq('room_id', roomId)
+    .eq('has_debt', true)
+  return (count ?? 0) > 0
+}
+
+/**
+ * Atomic acquire notification slot: trả TRUE nếu vừa update last_debt_notified_at,
+ * FALSE nếu trong 24h gần nhất đã có notify (dedup chống spam).
+ *
+ * Sử dụng atomic UPDATE...WHERE để chống race condition giữa 2 server render đồng thời.
+ */
+export async function tryAcquireDebtNotifySlot(invoiceId: string): Promise<boolean> {
+  const sb = createServerSupabaseClient()
+  const cutoff = new Date(Date.now() - 24 * 3600_000).toISOString()
+  const { data } = await sb
+    .from('invoices')
+    .update({ last_debt_notified_at: new Date().toISOString() })
+    .eq('id', invoiceId)
+    .or(`last_debt_notified_at.is.null,last_debt_notified_at.lt.${cutoff}`)
+    .select('id')
+  return (data?.length ?? 0) > 0
+}
