@@ -1,7 +1,6 @@
 import bcrypt from 'bcryptjs'
 import { randomBytes } from 'crypto'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
-import { addTenantToRoom } from '@/lib/db/room-tenants'
 import { genTempPassword } from '@/lib/utils/password'
 import type { User, TenantProfile, EmergencyContact, TenantBankAccount } from '@/types'
 
@@ -17,6 +16,10 @@ export interface TenantRow extends User {
 // ─── Tạo tài khoản khách thuê mới (UC-01) ────────────────────
 // T-016c D22: idCardNumber giờ optional (không còn dùng làm password).
 // Password sinh random 8 ký tự bằng genTempPassword (D19) — an toàn hơn 6 số CCCD.
+//
+// T-026: Wrap 3-5 writes trong PG function `create_tenant_account` (migrations-v16.sql)
+// để atomicity. Password hash + token vẫn generate ở TS (bcryptjs không có trong PG core),
+// pass vào RPC để DB chỉ làm pure inserts.
 export async function createTenantAccount(
   roomId: string,
   phone: string,
@@ -26,53 +29,29 @@ export async function createTenantAccount(
   const sb = createServerSupabaseClient()
   void idCardNumber  // giữ param signature cho backward compat — CCCD điền sau ở onboarding
 
-  // Kiểm tra SĐT chưa tồn tại
-  const { data: existing } = await sb.from('users').select('id').eq('phone', phone).maybeSingle()
-  if (existing) throw new Error('Số điện thoại đã được đăng ký')
-
-  // Kiểm tra phòng tồn tại
-  const { data: room } = await sb.from('rooms').select('id, name, status').eq('id', roomId).single()
-  if (!room) throw new Error('Phòng không tồn tại')
-
-  // Mật khẩu tạm random 8 ký tự (T-016c D19)
+  // Generate ở TS layer (PG core không có bcrypt)
   const tempPassword = genTempPassword(8)
   const passwordHash = await bcrypt.hash(tempPassword, 10)
   const token        = randomBytes(32).toString('hex')
   const expires      = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
 
-  const { data: newUser, error } = await sb
-    .from('users')
-    .insert({
-      phone,
-      password_hash:       passwordHash,
-      role:                'tenant',
-      full_name:           fullName ?? `Khách phòng ${room.name}`,
-      first_login_token:   token,
-      first_login_expires: expires,
-      is_profile_complete: false,
-      tenant_status:       'invited',
-    })
-    .select('id, phone')
-    .single()
+  const { data, error } = await sb.rpc('create_tenant_account', {
+    p_room_id:       roomId,
+    p_phone:         phone,
+    p_full_name:     fullName ?? null,
+    p_password_hash: passwordHash,
+    p_token:         token,
+    p_token_expires: expires,
+  })
 
-  if (error) throw new Error('Không thể tạo tài khoản: ' + error.message)
+  if (error) throw new Error(error.message || 'Không thể tạo tài khoản')
 
-  // Gán phòng cho khách (T-016 Phase B):
-  // - Insert vào room_tenants. Nếu phòng đang trống → user mới là primary
-  //   (addTenantToRoom dual-write rooms.tenant_id + status='occupied' khi isPrimary=true).
-  // - Nếu phòng đã có người → user mới chỉ join, primary cũ giữ nguyên.
-  const { count: activeCount } = await sb
-    .from('room_tenants')
-    .select('id', { count: 'exact', head: true })
-    .eq('room_id', roomId)
-    .is('left_at', null)
-  const isPrimary = (activeCount ?? 0) === 0
-  await addTenantToRoom(roomId, newUser.id, isPrimary)
-
-  // Tạo bản ghi profile trống
-  await sb.from('tenant_profiles').insert({ user_id: newUser.id, profile_status: 'draft' })
-
-  return { user: newUser, tempPassword, loginToken: token }
+  const result = data as { user_id: string; phone: string }
+  return {
+    user:         { id: result.user_id, phone: result.phone },
+    tempPassword,
+    loginToken:   token,
+  }
 }
 
 // ─── Lấy tất cả khách thuê ───────────────────────────────────

@@ -1,5 +1,4 @@
 import { createServerSupabaseClient } from '@/lib/supabase-server'
-import { removeTenantFromRoom } from '@/lib/db/room-tenants'
 import type { MoveRequest } from '@/types'
 
 export async function createMoveRequest(
@@ -68,40 +67,16 @@ export async function getMyMoveRequest(userId: string): Promise<MoveRequest | nu
   return (data as MoveRequest | null)
 }
 
+// T-026: Wrap 4-6 writes trong PG function `approve_move_request` (migrations-v16.sql)
+// để atomicity. TS chỉ gọi 1 sb.rpc() — nếu fail giữa chừng DB rollback toàn bộ.
+// Logic SQL replicate move-requests.ts cũ + room-tenants.ts removeTenantFromRoom.
 export async function approveMoveRequest(requestId: string, reviewerId: string): Promise<void> {
   const sb = createServerSupabaseClient()
-
-  const { data: req } = await sb
-    .from('move_requests')
-    .select('user_id, room_id')
-    .eq('id', requestId)
-    .single()
-  if (!req) throw new Error('Không tìm thấy yêu cầu')
-
-  // Cập nhật request
-  await sb.from('move_requests').update({
-    status:      'approved',
-    reviewed_by: reviewerId,
-    reviewed_at: new Date().toISOString(),
-  }).eq('id', requestId)
-
-  // Cập nhật tenant status → moved_out
-  await sb.from('users').update({ tenant_status: 'moved_out' }).eq('id', req.user_id)
-
-  // T-016 Phase B: dùng room_tenants thay vì set rooms.tenant_id=null trực tiếp.
-  // removeTenantFromRoom xử lý:
-  //   - set left_at trong room_tenants (không xóa row)
-  //   - chuyển primary cho người ở lâu nhất (nếu cần)
-  //   - sync rooms.tenant_id + status ('vacant' khi phòng trống, 'occupied' khi còn người)
-  await removeTenantFromRoom(req.room_id, req.user_id)
-
-  // Gửi thông báo cho khách
-  await sb.from('notifications').insert({
-    sender_id:   reviewerId,
-    receiver_id: req.user_id,
-    type:        'extension_approved',
-    message:     'Yêu cầu chuyển đi của bạn đã được chấp nhận.',
+  const { error } = await sb.rpc('approve_move_request', {
+    p_request_id:  requestId,
+    p_reviewer_id: reviewerId,
   })
+  if (error) throw new Error(error.message || 'Không thể duyệt yêu cầu')
 }
 
 export async function rejectMoveRequest(
