@@ -1,9 +1,10 @@
 # T-021 — Fix onboarding optional fields + UI cache stale
 
-## Trạng thái: 🔴 Đang làm (gấp — blocking tenant flow)
+## Trạng thái: 🟢 Done
 ## Ngày tạo: 2026-05-16
+## Ngày hoàn thành: 2026-05-17
 ## Ước lượng: 2-3 giờ
-## Áp dụng Phase E: ✅ Yes
+## Áp dụng Phase E: ⚠️ Partial (Phase E auto đã chạy 1 lần T-021b debug session, exposed SW + dashboard bugs → fix qua T-021b commit + T-025 batch. Re-run skipped per user Option B — pattern revalidatePath đã validate qua T-025; E1 onboarding deferred T-023; E3 auto-promote validated T-016)
 ## Phase E mode: auto
 ## Branch: feature/t021-fix-onboarding-ui
 
@@ -147,10 +148,43 @@ Cleanup sau test: chạy `task/todo/021/cleanup.sql`.
 
 ## Ghi chú khi làm
 
-(Fill khi chạy task)
+### Phase E auto first attempt (2026-05-17, debug session T-021b)
+
+3 bug runtime phát hiện qua Phase E auto:
+
+1. **Bug 1 — ESLint `react/no-unescaped-entities`** sau khi `tsc --noEmit` pass.
+   Phase C cũ chỉ check tsc, không build → catch sót. Fix bằng `&apos;` + bump workflow v3.2 (`npm run build` BẮT BUỘC).
+
+2. **Bug 2 — next/image crash với test domain `test.local`**.
+   Seed data ban đầu dùng `https://test.local/...` cho avatar_url, không match `next.config.js images.remotePatterns` (chỉ allow `*.supabase.co`). Fix: seed `avatar_url=NULL`. Bump skill `data-seed-pattern.md` ghi rõ rule này (T-025 ACT lesson 1).
+
+3. **Bug 3 — `.next/` stale sau rebase**.
+   File `.next/cache/` không match symbol mới sau rebase → runtime error. Fix: `rm -rf .next && npm run build`. Dev workflow note thêm bước này khi rebase.
+
+4. **Bug 4 (CRITICAL) — Service worker cache-first intercept navigation HTML**.
+   Sau Bug 1-3 fix, F5 `/dashboard` vẫn stale. Root cause: `public/sw.js` cache-first cho mọi GET bao gồm HTML. Server-side `revalidatePath` + `force-dynamic` bị vô hiệu hóa. Defer fix sang T-024 (audit) → T-025 (batch fix strategy A) → close T-021.
+
+### Rebase Step 5 (2026-05-17)
+
+- Rebase lên main (sau T-024 audit + T-025 batch fix + workflow v3.3) → 5 commits replay clean, no conflict.
+- Files debug + audit-t016 inventory move từ memory/ → work/ theo restructure 8fd3292.
+- Phase C re-check pass (tsc + build) sau rebase.
 
 ---
 
 ## ACT — Bài học rút ra
 
-(Fill cuối session)
+1. **Optional vs required fields phải tách biệt rõ ở 2 layer: DB logic (`checkProfileComplete`) + UI rendering (warning màu)**. (CODE)
+   Bug 1 do treat 3 optional fields (CCCD front/back, contract) như required ở cả 2 layer. Fix tách bạch: 8 required fields block complete, 3 optional fields warning vàng không block. Reference precedent cho Module 3 documents khi thêm field optional.
+
+2. **Server actions cross-role phải revalidate cả 2 path (tenant + admin) + page render data**. (CODE)
+   Bug 2 do server actions chỉ revalidate own path. Pattern T-016c `createTenantAction` (4 path) là template chuẩn — applied cho `approveMoveRequestAction`, `rejectMoveRequestAction`. T-025 áp dụng cùng pattern cho `createMoveRequestAction` + `cancelMoveRequestAction`. Audit anti-pattern SA1+SA3 (code-review-pattern.md v1.0) catch được pattern này ở Phase C.
+
+3. **Page server component dùng `cookies()` (qua `getCurrentUser`) phải có `export const dynamic = 'force-dynamic'`**. (CODE)
+   Bug 4 root cause include cả HTTP cache layer. Force-dynamic + Cache-Control no-store cần thiết dù `cookies()` ngầm trigger dynamic. Audit anti-pattern SC1 (code-review-pattern.md) catch ở Phase C BƯỚC 4. T-021b fix `/dashboard`, T-025 fix 5 page nữa.
+
+4. **Service worker layer can intercept Next.js cache invalidation — fix at SW level, not Next.js level**. (LOGIC — đã user duyệt strategy A ở T-025 Step 4.2)
+   Bug 4 architectural — server-side `revalidatePath` + `force-dynamic` + HTTP `Cache-Control: no-store` đều bị bypass nếu SW return cached match. Lesson cho mọi PWA về sau: SW cache-first phải exclude navigation/HTML cho data-driven page. Strategy A (skip navigation entirely) implemented T-025.
+
+5. **Phase E auto workflow v3.2 first test → exposed 4-layer bug (ESLint + image domain + .next + SW)**. (LOGIC — process validation)
+   Workflow v3.2 Phase E auto (eat-our-own-dogfood) chứng minh giá trị ngay lần test đầu: catch 4 bug ở 4 layer khác nhau, không layer nào catch được bằng tsc/build/lint tĩnh. Phase E là "moment of truth" không thay thế được. Triết lý: catch bug ở C (anti-pattern audit v3.3) bất cứ khi nào pattern có sẵn; còn lại dependence runtime Phase E. Workflow v3.3 + 2 skill mới (code-review-pattern + auto-decision-tiers) là direct outcome của lesson này.
