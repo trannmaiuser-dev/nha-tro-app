@@ -55,7 +55,7 @@ VALUES (
   '012345678901',
   'Số 1, Đường Test E1, Quận 1, TPHCM',
   'Lập trình viên test',
-  'https://test.local/avatar-e1.png',
+  NULL,
   'draft'
 )
 ON CONFLICT (user_id) DO UPDATE SET
@@ -119,7 +119,7 @@ VALUES (
   '00000000-0000-0000-0000-000000999002'::uuid,
   'Test T021 E2 MoveReq', '1990-06-15'::date, 'female',
   '012345678902', 'Số 2, Đường Test E2', 'Test occupation E2',
-  'https://test.local/avatar-e2.png', 'confirmed'
+  NULL, 'confirmed'
 )
 ON CONFLICT (user_id) DO UPDATE SET
   full_name      = EXCLUDED.full_name,
