@@ -65,12 +65,31 @@ export async function GET(req: NextRequest) {
   }
 
   // ── Audit log ───────────────────────────────────────────────
+  // T-029: dual write console (dev observability) + audit_logs table (persistent).
+  // Fail-open: nếu audit insert fail (vd migration v17 chưa apply, table không tồn tại) →
+  // log error nhưng vẫn impersonate. Lý do: endpoint chỉ active ở dev (L1 production strip),
+  // console.log đã capture event. Audit DB lỗi không nên block dev workflow.
+  // Production case: L1 chặn trước, code này không bao giờ chạy.
+  const ip = req.headers.get('x-forwarded-for') ?? 'localhost'
   console.log(
     `[dev/impersonate] ${new Date().toISOString()} ` +
-      `IP=${req.headers.get('x-forwarded-for') ?? 'localhost'} ` +
+      `IP=${ip} ` +
       `user_id=${user.id} role=${user.role} full_name="${user.full_name}"` +
       (forceComplete ? ' [force_complete=true]' : ''),
   )
+  const { error: auditError } = await sb.from('audit_logs').insert({
+    event_type:     'dev_impersonate',
+    target_user_id: user.id,
+    ip,
+    metadata:       {
+      role:           user.role,
+      full_name:      user.full_name,
+      force_complete: forceComplete,
+    },
+  })
+  if (auditError) {
+    console.error('[dev/impersonate] audit_logs insert failed (continuing):', auditError.message)
+  }
 
   // ── Tạo JWT (reuse createSession từ lib/auth.ts) ────────────
   // Payload format đồng bộ với app/api/auth/login/route.ts:29-35
