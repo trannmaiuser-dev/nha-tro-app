@@ -55,7 +55,8 @@ VALUES (
   '012345678901',
   'Số 1, Đường Test E1, Quận 1, TPHCM',
   'Lập trình viên test',
-  NULL,
+  -- Avatar: SVG data URI (T-023 — next/image render native, không cần whitelist domain)
+  'data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHZpZXdCb3g9JzAgMCAxMDAgMTAwJz48cmVjdCB3aWR0aD0nMTAwJyBoZWlnaHQ9JzEwMCcgZmlsbD0nIzZCNzI4MCcvPjx0ZXh0IHg9JzUwJyB5PSc2MicgZm9udC1mYW1pbHk9J0FyaWFsJyBmb250LXNpemU9JzQ4JyBmb250LXdlaWdodD0nYm9sZCcgZmlsbD0nd2hpdGUnIHRleHQtYW5jaG9yPSdtaWRkbGUnPjE8L3RleHQ+PC9zdmc+',
   'draft'
 )
 ON CONFLICT (user_id) DO UPDATE SET
@@ -119,7 +120,9 @@ VALUES (
   '00000000-0000-0000-0000-000000999002'::uuid,
   'Test T021 E2 MoveReq', '1990-06-15'::date, 'female',
   '012345678902', 'Số 2, Đường Test E2', 'Test occupation E2',
-  NULL, 'confirmed'
+  -- Avatar: SVG data URI (T-023)
+  'data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHZpZXdCb3g9JzAgMCAxMDAgMTAwJz48cmVjdCB3aWR0aD0nMTAwJyBoZWlnaHQ9JzEwMCcgZmlsbD0nIzNCODJGNicvPjx0ZXh0IHg9JzUwJyB5PSc2MicgZm9udC1mYW1pbHk9J0FyaWFsJyBmb250LXNpemU9JzQ4JyBmb250LXdlaWdodD0nYm9sZCcgZmlsbD0nd2hpdGUnIHRleHQtYW5jaG9yPSdtaWRkbGUnPjI8L3RleHQ+PC9zdmc+',
+  'confirmed'
 )
 ON CONFLICT (user_id) DO UPDATE SET
   full_name      = EXCLUDED.full_name,

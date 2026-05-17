@@ -56,6 +56,39 @@ t<task-id>-e<n>@test.local
 - Domain `.local` không xung đột thực tế
 - Cleanup: `DELETE FROM users WHERE email LIKE '%@test.local'`
 
+### Avatar URL (cho seed có `avatar_url` required) ⭐ MỚI T-023
+
+**KHÔNG dùng external test domain** (vd `https://test.local/...`) — next/image crash do domain không trong `next.config.js images.remotePatterns` (T-021 Bug 2).
+
+**KHÔNG dùng NULL** nếu test scenario yêu cầu avatar present — wizard `validateStep` block với `!s1.avatar_url` (T-023 root cause).
+
+✅ **Dùng SVG data URI** — next/image render native, không cần whitelist domain:
+
+```sql
+'data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHZpZXdCb3g9JzAgMCAxMDAgMTAwJz48cmVjdCB3aWR0aD0nMTAwJyBoZWlnaHQ9JzEwMCcgZmlsbD0nIzZCNzI4MCcvPjx0ZXh0IHg9JzUwJyB5PSc2MicgZm9udC1mYW1pbHk9J0FyaWFsJyBmb250LXNpemU9JzQ4JyBmb250LXdlaWdodD0nYm9sZCcgZmlsbD0nd2hpdGUnIHRleHQtYW5jaG9yPSdtaWRkbGUnPjE8L3RleHQ+PC9zdmc+'
+```
+
+Decoded SVG (100×100 gray square với chữ số):
+```svg
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>
+  <rect width='100' height='100' fill='#6B7280'/>
+  <text x='50' y='62' font-family='Arial' font-size='48' font-weight='bold'
+        fill='white' text-anchor='middle'>1</text>
+</svg>
+```
+
+Generate cho task khác — chạy:
+```js
+const svg = (letter, color) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='${color}'/><text x='50' y='62' font-family='Arial' font-size='48' font-weight='bold' fill='white' text-anchor='middle'>${letter}</text></svg>`
+'data:image/svg+xml;base64,' + Buffer.from(svg('1', '#6B7280')).toString('base64')
+```
+
+Khuyến nghị color palette (Tailwind):
+- E1 (gray-500): `#6B7280`
+- E2 (blue-500): `#3B82F6`
+- E3 (emerald-500): `#10B981`
+- E4+ (amber-500): `#F59E0B`
+
 ---
 
 ## Placeholder convention
@@ -175,4 +208,11 @@ Khi tạo todo mới có Phase E:
 
 ---
 
-*Skill version: 1.0 · Cập nhật: 2026-05-17*
+*Skill version: 1.1 · Cập nhật: 2026-05-18*
+
+**Changelog:**
+- v1.1 (18/05/2026): Avatar URL convention cho test fixture (T-023)
+  - KHÔNG external domain (test.local crash next/image — T-021 Bug 2)
+  - KHÔNG NULL nếu wizard yêu cầu avatar present (T-023 root cause)
+  - ✅ SVG data URI — next/image render native, không cần whitelist
+- v1.0 (17/05/2026): Initial pattern (phone 0911999, name Test T<id>, email .local, placeholder UUID)
