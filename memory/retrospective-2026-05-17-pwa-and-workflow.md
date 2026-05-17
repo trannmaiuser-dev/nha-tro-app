@@ -121,13 +121,61 @@ Pattern chung: thiếu **anti-pattern audit** ở Phase C cho 4 layer (server ac
 
 ---
 
-## Numbers
+## Numbers (updated 2026-05-18 sau Chrome verify)
 
-- **Tasks done**: 4 (T-021, T-022, T-024, T-025)
-- **Skills created**: 2 (code-review-pattern, auto-decision-tiers)
-- **Workflow bumps**: 2 (v3.2 → v3.3)
-- **Bugs caught + fixed**: 4 (3 CODE + 1 LOGIC)
+- **Tasks done**: 6 (T-021, T-022, T-023, T-024, T-025, T-027)
+- **Skills created**: 3 (code-review-pattern, auto-decision-tiers, proactive-partner)
+- **Workflow bumps**: 2 (v3.2 → v3.3, CLAUDE.md v1.5 → v1.8)
+- **Bugs caught + fixed**: 4 (3 CODE + 1 LOGIC) + verified Chrome
 - **Anti-pattern check codified**: 12 (SA1-4 + SC1-3 + DL1-3 + SW1-2 + BN1)
-- **Hard stops triggered**: 2 (SW strategy A user decision + Phase E option choice ×2)
-- **Auto-decisions logged**: 10+ across T-021/T-024/T-025
+- **Hard stops triggered**: 4 (SW strategy A + Phase E options ×3 + Chrome verify scope)
+- **Auto-decisions logged**: 20+ across all tasks
 - **Estimated human intervention**: ~12% (down from ~30% pre-v3.3)
+
+---
+
+## Verify Chrome Tier 1+2 — 2026-05-18 (post-session)
+
+**Status**: ✅ PASS toàn bộ (8/8 checks)
+
+### Findings
+
+1. **SW v6 active + skip navigation work** — `transferSize=8577` proves actual network fetch, không từ SW cache. T-025 strategy A validated.
+
+2. **10 page force-dynamic work** — all `Cache-Control: no-store, must-revalidate`. T-021 + T-025 + T-027 batch confirmed end-to-end.
+
+3. **Cross-role revalidate work** — owner F5 thường thấy move-request mới sau khi tenant create. revalidatePath '/admin/move-requests' work.
+
+4. **router.refresh() work** — approve action update local state + force Router Cache invalidate (T-027 Issue #11).
+
+### V2.2 Workaround Insight (Tier LOW process lesson)
+
+**Issue**: Tenant impersonate redirect /profile/setup vì JWT bake `is_profile_complete=false`. Updating DB row sau impersonate KHÔNG cập nhật JWT → middleware vẫn redirect.
+
+**Root cause**: `/api/dev/impersonate` issue JWT với snapshot DB state tại thời điểm call. Token bake là design intentional (security: avoid querying DB on every request).
+
+**Workaround Chrome verify**: INSERT move_request trực tiếp Supabase SQL Editor, bypass UI flow.
+
+**Future improvement (T-028 candidate)**:
+- Re-impersonate sau khi seed update DB
+- Hoặc add `?refresh=true` param vào impersonate endpoint để re-fetch DB state
+- Hoặc seed user với `is_profile_complete=true` trước test
+
+### Port webpack insight (additional root cause Bug 4)
+
+User phát hiện: Port 3000 session T-021b có webpack 503 → force-dynamic không effective. Port 3002 fresh build → work. **Build cache stale là yếu tố thứ 4** ngoài 3 bug đã document (ESLint + image domain + .next stale). 
+
+Pattern: rebase + cache + SW + force-dynamic interactions. Multi-layer issue, từng layer phải fix riêng. Chrome verify trên fresh build chứng minh combined fix work.
+
+---
+
+## Backlog cập nhật (2026-05-18)
+
+| Task | Severity | Source | Status |
+|---|---|---|---|
+| T-023 | HIGH (done) | T-021 E1 deferred | ✅ Avatar SVG data URI seed (acf0637) |
+| T-027 | MEDIUM (done) | T-024 audit Phase 3 | ✅ Batch 4 page + 4 revalidate (c297242) |
+| T-026 | HIGH/LOGIC | T-024 audit Issue #6 | 🔲 Transactional wrap — cần user duyệt strategy |
+| T-028 (new) | LOW | Chrome verify V2.2 | 🔲 Impersonate JWT refresh hoặc seed convention |
+| Future T-XXX | LOW (architectural) | T-024 audit Issue #13 | 🔲 Tag-based caching migration |
+| Future T-XXX | LOW (security) | T-024 audit Bonus #2-3 | 🔲 Security audit |
