@@ -30,6 +30,7 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url)
   const token = url.searchParams.get('token')
   const userId = url.searchParams.get('user_id')
+  const forceComplete = url.searchParams.get('force_complete') === 'true'
 
   if (!token || !userId) {
     return new NextResponse('Missing params', { status: 400 })
@@ -67,23 +68,30 @@ export async function GET(req: NextRequest) {
   console.log(
     `[dev/impersonate] ${new Date().toISOString()} ` +
       `IP=${req.headers.get('x-forwarded-for') ?? 'localhost'} ` +
-      `user_id=${user.id} role=${user.role} full_name="${user.full_name}"`,
+      `user_id=${user.id} role=${user.role} full_name="${user.full_name}"` +
+      (forceComplete ? ' [force_complete=true]' : ''),
   )
 
   // ── Tạo JWT (reuse createSession từ lib/auth.ts) ────────────
   // Payload format đồng bộ với app/api/auth/login/route.ts:29-35
+  //
+  // T-028: force_complete=true override isProfileComplete cho dev tooling.
+  // Use case: impersonate tenant có is_profile_complete=false trong DB để test
+  // dashboard/community flow mà không bị middleware redirect /profile/setup.
+  // Bypass chỉ active trong dev (L1 production strip + L3 token đảm bảo).
   const jwt = await createSession({
     userId: user.id,
     phone: user.phone,
     role: user.role as UserRole,
     fullName: user.full_name,
-    isProfileComplete: user.is_profile_complete ?? true,
+    isProfileComplete: forceComplete ? true : (user.is_profile_complete ?? true),
   })
 
   // ── Redirect theo role ──────────────────────────────────────
   // Middleware enforce render đúng UI ở /dashboard cho cả owner và tenant
   // (DashboardPage server component dispatch OwnerDashboard / TenantDashboard).
-  // Note: tenant với isProfileComplete=false sẽ bị middleware đẩy về /profile/setup.
+  // Note: tenant với isProfileComplete=false sẽ bị middleware đẩy về /profile/setup
+  // (trừ khi gọi với ?force_complete=true để bypass — T-028).
   const response = NextResponse.redirect(new URL('/dashboard', req.url), { status: 302 })
 
   // Cookie options copy từ app/api/auth/login/route.ts:42-48
