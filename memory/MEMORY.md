@@ -1,0 +1,1 @@
+- [Stale dev server gây phantom regression](retrospective-2026-05-18-stale-dev-server.md) — verify dev server cwd trước khi suspect regression
