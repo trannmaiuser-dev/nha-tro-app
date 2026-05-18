@@ -157,7 +157,7 @@ Nếu cần component mới chưa có → tạo trong `components/ui/` để tá
 | 3 | Giấy tờ | `/admin/documents`, `/tenant/documents` | 3 | 🟢 Done (T-033 admin CRUD + T-034 tenant view) | — |
 | 4 | Camera AI | `/admin/camera` | 5 | 🔲 Chưa làm | — |
 | 5 | Thông báo nội bộ | (tích hợp) | 2 | 🟢 Done cho Module 2 | move-requests + payment-proofs đã có notify |
-| 6 | Cộng đồng | `/community` | 4 | 🔲 Chưa làm | — |
+| 6 | Cộng đồng | `/community`, `/chat` | 4 | 🟢 Done (audit 2026-05-18 — 5/5 UC + 3 bonus + Realtime) | Posts/Events/Maintenance/Marketplace/HeroTeam/Chat. Gap T-037 maintenance notify dispatch |
 
 > Bảng này tự động cập nhật sau mỗi `done`. Xem todo-workflow.md Hành vi 5 Bước 4.
 
