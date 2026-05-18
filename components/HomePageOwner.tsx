@@ -184,7 +184,8 @@ export default function HomePageOwner({ user, stats }: { user: AuthPayload; stat
       desc: 'Lưu trữ tài liệu',
       Icon: FolderOpen,
       colors: CARD_COLORS.docs,
-      onClick: () => router.push('/dashboard'),
+      // T-033: link sang Module 3
+      onClick: () => router.push('/admin/documents'),
     },
     {
       id: 'settings',
