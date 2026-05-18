@@ -61,7 +61,7 @@ ALTER TABLE documents DISABLE ROW LEVEL SECURITY;
 
 CREATE INDEX IF NOT EXISTS idx_documents_category ON documents(category_id, uploaded_at DESC) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_documents_room     ON documents(room_id, uploaded_at DESC) WHERE deleted_at IS NULL AND room_id IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_documents_tenant   ON documents(tenant_id, uploaded_at DESC) WHERE deleted_at IS NULL AND tenant_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_documents_by_tenant   ON documents(tenant_id, uploaded_at DESC) WHERE deleted_at IS NULL AND tenant_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_documents_active   ON documents(uploaded_at DESC) WHERE deleted_at IS NULL;
 
 NOTIFY pgrst, 'reload schema';
