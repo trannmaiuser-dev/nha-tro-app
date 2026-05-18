@@ -47,10 +47,12 @@ export type FeesSettingsInput = z.infer<typeof feesSettingsSchema>
 
 // ─── Tab 3: Thời gian ─────────────────────────────────────
 export const timingSettingsSchema = z.object({
-  meter_reading_day:        z.number().int().min(1, 'Từ 1 đến 28').max(28, 'Từ 1 đến 28'),
-  payment_due_day:          z.number().int().min(1, 'Từ 1 đến 28').max(28, 'Từ 1 đến 28'),
-  overdue_warning_days:     z.number().int().min(1, 'Tối thiểu 1 ngày').max(60, 'Tối đa 60'),
-  overdue_remind_interval:  z.number().int().min(1, 'Tối thiểu 1 ngày').max(30, 'Tối đa 30'),
+  meter_reading_day:           z.number().int().min(1, 'Từ 1 đến 28').max(28, 'Từ 1 đến 28'),
+  payment_due_day:             z.number().int().min(1, 'Từ 1 đến 28').max(28, 'Từ 1 đến 28'),
+  overdue_warning_days:        z.number().int().min(1, 'Tối thiểu 1 ngày').max(60, 'Tối đa 60'),
+  overdue_remind_interval:     z.number().int().min(1, 'Tối thiểu 1 ngày').max(30, 'Tối đa 30'),
+  // T-017/T-035: số ngày trễ sau due_date mới bắt đầu gửi push cho tenant
+  debt_warning_threshold_days: z.number().int().min(0, 'Tối thiểu 0').max(30, 'Tối đa 30'),
 })
 export type TimingSettingsInput = z.infer<typeof timingSettingsSchema>
 

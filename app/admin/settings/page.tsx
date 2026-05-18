@@ -60,10 +60,11 @@ export default async function AdminSettingsPage() {
   }
 
   const timing: TimingSettingsInput = {
-    meter_reading_day:       asNumber(settings.meter_reading_day, 1),
-    payment_due_day:         asNumber(settings.payment_due_day, 5),
-    overdue_warning_days:    asNumber(settings.overdue_warning_days, 7),
-    overdue_remind_interval: asNumber(settings.overdue_remind_interval, 5),
+    meter_reading_day:           asNumber(settings.meter_reading_day, 1),
+    payment_due_day:             asNumber(settings.payment_due_day, 5),
+    overdue_warning_days:        asNumber(settings.overdue_warning_days, 7),
+    overdue_remind_interval:     asNumber(settings.overdue_remind_interval, 5),
+    debt_warning_threshold_days: asNumber(settings.debt_warning_threshold_days, 0),
   }
 
   const misc: MiscSettingsInput = {

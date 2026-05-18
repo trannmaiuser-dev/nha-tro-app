@@ -90,6 +90,24 @@ export default function TimingSettingsForm({ defaults }: Props) {
             <p className="text-xs text-red-500 mt-1">{errors.overdue_remind_interval.message}</p>
           )}
         </div>
+
+        {/* T-035: T-017 debt warning threshold (push notification + banner cho tenant) */}
+        <div>
+          <label className="block text-sm font-bold text-gray-600 mb-1.5">
+            Ngưỡng cảnh báo nợ cho khách (ngày) <span className="text-red-400">*</span>
+          </label>
+          <input
+            {...register('debt_warning_threshold_days', { valueAsNumber: true })}
+            type="number" min={0} max={30}
+            className={`input-field w-full ${errors.debt_warning_threshold_days ? 'error' : ''}`}
+          />
+          {errors.debt_warning_threshold_days && (
+            <p className="text-xs text-red-500 mt-1">{errors.debt_warning_threshold_days.message}</p>
+          )}
+          <p className="text-xs text-gray-400 mt-1">
+            Số ngày trễ sau hạn đóng tiền mới gửi push notification + banner đỏ cho khách. 0 = quá ngày 1 cảnh báo ngay.
+          </p>
+        </div>
       </section>
 
       <button
