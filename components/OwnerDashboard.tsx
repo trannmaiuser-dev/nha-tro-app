@@ -44,12 +44,24 @@ export default function OwnerDashboard({ user, rooms, payments, notifications }:
   const [activeTab, setActiveTab] = useState<'rooms' | 'notifs'>('rooms')
   const [unreadChat,     setUnreadChat]     = useState(0)
   const [showCreateModal, setShowCreateModal] = useState(false)
+  // T-019: track room đang được pre-select khi mở modal từ button của 1 room cụ thể.
+  // null = mở mặc định (vd FAB nếu có); string = roomId pre-select.
+  const [createTargetRoom, setCreateTargetRoom] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/messages/unread').then(r => r.json()).then(d => setUnreadChat(d.count ?? 0)).catch(() => {})
   }, [])
 
-  const vacantRooms = rooms.filter(r => r.status === 'vacant').map(r => ({ id: r.id, name: r.name, floor: r.floor }))
+  // T-019: pass tất cả rooms (vacant + occupied) cho modal. Modal hiện count hiện tại cho mỗi phòng.
+  // Filter ra maintenance status (không cho thêm khách vào phòng đang sửa).
+  const availableRooms = rooms
+    .filter(r => r.status !== 'maintenance')
+    .map(r => ({
+      id:          r.id,
+      name:        r.name,
+      floor:       r.floor,
+      tenantCount: (r.tenants ?? []).length,
+    }))
 
   const occupied = rooms.filter(r => r.status === 'occupied').length
   const vacant   = rooms.filter(r => r.status === 'vacant').length
@@ -243,10 +255,19 @@ export default function OwnerDashboard({ user, rooms, payments, notifications }:
 
                   {room.status === 'vacant' && (
                     <button
-                      onClick={() => setShowCreateModal(true)}
+                      onClick={() => { setCreateTargetRoom(room.id); setShowCreateModal(true) }}
                       className="w-full border border-primary-200 text-primary-600 font-bold rounded-xl py-2.5 text-sm active:scale-95 transition-all bg-primary-50"
                     >
                       ＋ Tạo tài khoản khách
+                    </button>
+                  )}
+                  {/* T-019: phòng occupied cũng cho thêm khách thứ 2+ (multi-tenant UC-02b) */}
+                  {room.status === 'occupied' && (
+                    <button
+                      onClick={() => { setCreateTargetRoom(room.id); setShowCreateModal(true) }}
+                      className="w-full mt-2 border border-gray-200 text-gray-500 font-bold rounded-xl py-2 text-xs active:scale-95 transition-all"
+                    >
+                      ＋ Thêm khách
                     </button>
                   )}
                 </div>
@@ -311,7 +332,11 @@ export default function OwnerDashboard({ user, rooms, payments, notifications }:
       )}
 
       {showCreateModal && (
-        <CreateTenantModal vacantRooms={vacantRooms} onClose={() => setShowCreateModal(false)} />
+        <CreateTenantModal
+          availableRooms={availableRooms}
+          initialRoomId={createTargetRoom ?? undefined}
+          onClose={() => { setShowCreateModal(false); setCreateTargetRoom(null) }}
+        />
       )}
     </div>
   )

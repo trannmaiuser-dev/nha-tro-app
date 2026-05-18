@@ -5,23 +5,24 @@ import { useRouter } from 'next/navigation'
 import Select from '@/components/ui/Select'
 import { createTenantAction } from '@/app/admin/tenants/actions'
 
-interface Room { id: string; name: string; floor: number }
+// T-019: shape mở rộng — `tenantCount` cho phòng occupied (hiện "đang N người").
+interface Room { id: string; name: string; floor: number; tenantCount: number }
 
 interface Props {
-  // T-016c: tham số đổi tên ngữ nghĩa nhưng giữ tương thích — caller có thể truyền
-  // cả phòng đã có khách (UC-02 multi-tenant); component sẽ hiển thị số người hiện tại.
-  vacantRooms: Room[]
-  onClose:     () => void
+  availableRooms: Room[]
+  /** T-019: roomId pre-select khi mở từ button của 1 phòng cụ thể. */
+  initialRoomId?: string
+  onClose:        () => void
 }
 
 interface Result {
   phone: string; roomName: string; tempPassword: string; loginLink: string; expiresAt: string
 }
 
-export default function CreateTenantModal({ vacantRooms, onClose }: Props) {
+export default function CreateTenantModal({ availableRooms, initialRoomId, onClose }: Props) {
   const router   = useRouter()
   const [phone,   setPhone]   = useState('')
-  const [roomId,  setRoomId]  = useState(vacantRooms[0]?.id || '')
+  const [roomId,  setRoomId]  = useState(initialRoomId ?? availableRooms[0]?.id ?? '')
   const [loading, setLoading] = useState(false)
   const [error,   setError]   = useState('')
   const [result,  setResult]  = useState<Result | null>(null)
@@ -36,10 +37,14 @@ export default function CreateTenantModal({ vacantRooms, onClose }: Props) {
     onClose()
   }
 
-  const roomOptions = vacantRooms.map(r => ({
+  // T-019: label thay đổi theo trạng thái phòng — vacant=trống, occupied=đang N người.
+  const roomOptions = availableRooms.map(r => ({
     value: r.id,
-    label: `Phòng ${r.name} — Tầng ${r.floor}`,
+    label: r.tenantCount === 0
+      ? `Phòng ${r.name} — Tầng ${r.floor} (trống)`
+      : `Phòng ${r.name} — Tầng ${r.floor} (đang ${r.tenantCount} người)`,
   }))
+  const selectedRoom = availableRooms.find(r => r.id === roomId)
 
   async function handleCreate() {
     if (!phone.trim() || !roomId) { setError('Vui lòng điền đầy đủ thông tin'); return }
@@ -146,10 +151,10 @@ export default function CreateTenantModal({ vacantRooms, onClose }: Props) {
                 <label className="block text-sm font-bold mb-1.5" style={{ color: 'var(--text-2)' }}>
                   Phòng <span className="text-red-400">*</span>
                 </label>
-                {vacantRooms.length === 0 ? (
+                {availableRooms.length === 0 ? (
                   <div className="input-field flex items-center gap-2 opacity-60 cursor-default">
                     <span className="text-yellow-500">⚠️</span>
-                    <span className="text-sm">Không có phòng trống</span>
+                    <span className="text-sm">Không có phòng khả dụng</span>
                   </div>
                 ) : (
                   <Select
@@ -158,6 +163,19 @@ export default function CreateTenantModal({ vacantRooms, onClose }: Props) {
                     options={roomOptions}
                     placeholder="Chọn phòng..."
                   />
+                )}
+                {/* T-019: cảnh báo capacity khi phòng đã có >= 6 người */}
+                {selectedRoom && selectedRoom.tenantCount >= 6 && (
+                  <p className="mt-1.5 text-xs text-orange-600 flex items-center gap-1">
+                    <span>⚠️</span>
+                    Phòng đã có {selectedRoom.tenantCount} người — cân nhắc trước khi thêm
+                  </p>
+                )}
+                {/* T-019: note cho occupied — khách mới = thành viên thêm, không phải primary */}
+                {selectedRoom && selectedRoom.tenantCount > 0 && selectedRoom.tenantCount < 6 && (
+                  <p className="mt-1.5 text-xs text-gray-500">
+                    Phòng đang có {selectedRoom.tenantCount} người. Khách mới sẽ là thành viên thêm (không phải đại diện).
+                  </p>
                 )}
               </div>
 
@@ -174,7 +192,7 @@ export default function CreateTenantModal({ vacantRooms, onClose }: Props) {
                 <button onClick={handleClose} className="btn-ghost flex-1 py-3 text-sm">Hủy</button>
                 <button
                   onClick={handleCreate}
-                  disabled={loading || vacantRooms.length === 0}
+                  disabled={loading || availableRooms.length === 0}
                   className="btn-primary flex-1 py-3 text-sm"
                 >
                   {loading ? <Spinner /> : 'Tạo tài khoản'}

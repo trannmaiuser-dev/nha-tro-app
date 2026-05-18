@@ -331,7 +331,9 @@ export default function HomePageOwner({ user, stats }: { user: AuthPayload; stat
 
       {showCreateModal && (
         <CreateTenantModal
-          vacantRooms={stats.vacantRoomList}
+          // T-019: HomePageOwner pass vacant-only list (legacy quick-create flow).
+          // OwnerDashboard pass all rooms với count cho multi-tenant add.
+          availableRooms={stats.vacantRoomList.map(r => ({ ...r, tenantCount: 0 }))}
           onClose={() => setShowCreateModal(false)}
         />
       )}
