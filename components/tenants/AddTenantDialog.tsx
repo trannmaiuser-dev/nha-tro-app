@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { toast } from 'sonner'
-import { createTenantAction } from '@/app/admin/tenants/actions'
+import { createTenantAction, setPrimaryAction } from '@/app/admin/tenants/actions'
 import type { TenantRow } from '@/lib/db/tenants'
 
 /** Phòng có thể chọn khi thêm khách. `tenants_count` = số tenant đang active (T-016 Phase C). */
@@ -29,6 +29,8 @@ export default function AddTenantDialog({ open, rooms, onClose, onAdded }: Props
   const [roomId,     setRoomId]     = useState('')
   const [fullName,   setFullName]   = useState('')
   const [loading,    setLoading]    = useState(false)
+  // T-036: checkbox cho phòng occupied — đặt khách mới làm primary thay người hiện tại
+  const [makePrimary, setMakePrimary] = useState(false)
   const [result,     setResult]     = useState<{
     tempPassword: string
     phone:        string
@@ -54,8 +56,24 @@ export default function AddTenantDialog({ open, rooms, onClose, onAdded }: Props
       room_id:        roomId,
       full_name:      fullName || undefined,
     })
+    if (!res.success) {
+      setLoading(false)
+      toast.error(res.error)
+      return
+    }
+
+    // T-036: nếu checkbox check + phòng đã có người → setPrimary cho khách mới
+    if (makePrimary && (selectedRoom?.tenants_count ?? 0) > 0) {
+      const primaryRes = await setPrimaryAction(roomId, res.data.userId)
+      if (!primaryRes.success) {
+        // Tenant đã tạo OK, chỉ setPrimary fail. Hiện warning nhưng vẫn show result.
+        toast.error(`Tài khoản đã tạo nhưng chưa đặt làm đại diện: ${primaryRes.error}`)
+      } else {
+        toast.success('👑 Đã đặt khách mới làm đại diện phòng')
+      }
+    }
+
     setLoading(false)
-    if (!res.success) { toast.error(res.error); return }
     setResult({
       tempPassword: res.data.tempPassword,
       phone:        res.data.phone,
@@ -66,7 +84,7 @@ export default function AddTenantDialog({ open, rooms, onClose, onAdded }: Props
   }
 
   function handleClose() {
-    setPhone(''); setCccd(''); setRoomId(''); setFullName(''); setResult(null)
+    setPhone(''); setCccd(''); setRoomId(''); setFullName(''); setMakePrimary(false); setResult(null)
     onClose()
   }
 
@@ -190,6 +208,24 @@ export default function AddTenantDialog({ open, rooms, onClose, onAdded }: Props
                   </p>
                 )}
               </div>
+
+              {/* T-036: checkbox đặt làm đại diện — chỉ hiện cho phòng đã có người */}
+              {selectedRoom && selectedRoom.tenants_count > 0 && (
+                <label className="flex items-start gap-2.5 cursor-pointer p-3 bg-yellow-50 border border-yellow-200 rounded-2xl">
+                  <input
+                    type="checkbox"
+                    checked={makePrimary}
+                    onChange={e => setMakePrimary(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 accent-yellow-500"
+                  />
+                  <div className="text-xs text-yellow-800">
+                    <p className="font-bold">👑 Đặt khách mới làm đại diện</p>
+                    <p className="text-yellow-700 mt-0.5">
+                      Người đại diện hiện tại sẽ trở thành thành viên thường. Áp dụng ngay sau khi tạo.
+                    </p>
+                  </div>
+                </label>
+              )}
 
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={handleClose} className="btn-secondary flex-1" disabled={loading}>Hủy</button>

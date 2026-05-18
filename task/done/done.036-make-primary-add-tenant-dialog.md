@@ -12,7 +12,38 @@
 | **Giai đoạn** | 1 |
 | **Ưu tiên** | 🟢 Thấp (extend T-032 sang admin tenant list) |
 | **Ngày tạo** | 2026-05-18 |
-| **Trạng thái** | 🔲 Todo |
+| **Ngày hoàn thành** | 2026-05-18 |
+| **Trạng thái** | 🟢 Done |
+| **Ước lượng thực tế** | ~25 phút |
+| **Branch** | feature/t036-make-primary-add-dialog |
+
+---
+
+## ACT
+
+### Files thay đổi
+- `app/admin/tenants/actions.ts`: createTenantAction return thêm `userId` field
+- `components/tenants/AddTenantDialog.tsx`: +makePrimary state + checkbox UI conditional + post-create setPrimaryAction
+
+### Decisions (autonomous)
+- **D1:** NON-atomic flow: createTenantAction → setPrimaryAction (2 RPCs). Lý do: PG function `create_tenant_account` không nhận `is_primary` override param. Modify PG function = scope creep. Partial failure handled with warning toast.
+- **D2:** Conditional checkbox: chỉ hiện khi `selectedRoom.tenants_count > 0`. Phòng trống → primary mặc nhiên.
+- **D3:** createTenantAction Result mở rộng `userId`. Backward compat 100% (caller cũ CreateTenantModal không break).
+- **D4:** Warning toast riêng nếu tenant tạo OK nhưng setPrimary fail → owner biết partial state.
+
+### Phase C 12-pattern audit
+- SA1-4: ✅ N/A actions reused (đã PASS audit T-019/T-032)
+- SC1-3, DL1-3, SW1-2, BN1: ✅ N/A
+- Pure UI composition.
+
+### Smoke test
+| TC | Mô tả | Pass |
+|---|---|---|
+| TC1 | Phòng vacant → checkbox KHÔNG hiện | Hide |
+| TC2 | Phòng occupied → checkbox hiện yellow box | Show |
+| TC3 | Check + submit | 2 toast: tạo + 👑 đại diện |
+| TC4 | DB verify: room_tenants is_primary swap | Old false, new true |
+| TC5 | Uncheck + submit | Chỉ tạo toast, primary không swap |
 
 ---
 

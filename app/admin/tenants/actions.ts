@@ -15,6 +15,7 @@ async function verifyOwner() {
 }
 
 export async function createTenantAction(input: unknown): Promise<Result<{
+  userId:       string  // T-036: cần cho setPrimaryAction follow-up
   tempPassword: string
   loginToken:   string
   loginLink:    string
@@ -46,6 +47,7 @@ export async function createTenantAction(input: unknown): Promise<Result<{
     return {
       success: true,
       data: {
+        userId:       result.user.id,
         tempPassword: result.tempPassword,
         loginToken:   result.loginToken,
         loginLink,
