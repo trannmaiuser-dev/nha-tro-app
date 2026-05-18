@@ -130,9 +130,12 @@ export default function ProfileSelfPage({ currentUser, profile, room }: Props) {
           <div className="bg-white rounded-2xl shadow-card p-4 space-y-2">
             <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Quản lý</p>
             {[
-              { label: '🏠 Quản lý phòng', href: '/dashboard' },
-              { label: '📋 Hồ sơ khách', href: '/dashboard' },
-              { label: '⚙️ Cài đặt', href: '/home' },
+              { label: '🏠 Quản lý phòng',   href: '/rooms' },
+              { label: '📋 Hồ sơ khách',    href: '/admin/tenants' },
+              { label: '💰 Hóa đơn & thu chi', href: '/admin/finance/invoices' },
+              { label: '📊 Báo cáo thu chi', href: '/admin/finance/report' },
+              { label: '⚡ Chỉ số điện nước', href: '/admin/utilities' },
+              { label: '⚙️ Cài đặt',         href: '/admin/settings' },
             ].map(item => (
               <button key={item.href + item.label} onClick={() => router.push(item.href)}
                 className="w-full flex items-center justify-between py-2.5 px-0 border-b border-gray-50 last:border-0 active:scale-98 transition-all">

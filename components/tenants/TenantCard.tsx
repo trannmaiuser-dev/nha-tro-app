@@ -84,9 +84,6 @@ export default function TenantCard({ tenant }: Props) {
         {!tenant.is_profile_complete && (
           <span className="badge-yellow">Chưa hoàn thiện hồ sơ</span>
         )}
-        {tenant.has_debt && (
-          <span className="badge-red">Đang nợ tiền</span>
-        )}
         {profile?.profile_status === 'pending' && (
           <span className="badge-orange">Chờ duyệt hồ sơ</span>
         )}

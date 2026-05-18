@@ -8,7 +8,6 @@ import type { User, TenantProfile, EmergencyContact, TenantBankAccount } from '@
 export interface TenantRow extends User {
   is_profile_complete: boolean
   tenant_status: string
-  has_debt: boolean
   tenant_profiles?: TenantProfile | null
   room?: { id: string; name: string; floor: number } | null
   /** T-042: active membership info — null nếu không có active membership. */
@@ -84,7 +83,7 @@ export async function getAllTenants(): Promise<TenantRow[]> {
   const { data, error } = await sb
     .from('users')
     .select(`
-      id, phone, full_name, role, is_profile_complete, tenant_status, has_debt,
+      id, phone, full_name, role, is_profile_complete, tenant_status,
       tenant_profiles(id, avatar_url, profile_status),
       room_tenants!user_id(
         id, contract_end_date, is_primary, left_at,
@@ -106,7 +105,7 @@ export async function getTenantById(id: string): Promise<TenantRow | null> {
   const { data } = await sb
     .from('users')
     .select(`
-      id, phone, full_name, role, is_profile_complete, tenant_status, has_debt,
+      id, phone, full_name, role, is_profile_complete, tenant_status,
       tenant_profiles(id, full_name, dob, gender, cccd_number, address, occupation, avatar_url, profile_status),
       room_tenants!user_id(
         is_primary, left_at,
@@ -136,7 +135,7 @@ export async function getTenantsByRoomId(roomId: string): Promise<TenantRow[]> {
 
   const { data } = await sb
     .from('users')
-    .select('id, phone, full_name, role, is_profile_complete, tenant_status, has_debt, tenant_profiles(avatar_url, profile_status)')
+    .select('id, phone, full_name, role, is_profile_complete, tenant_status, tenant_profiles(avatar_url, profile_status)')
     .eq('role', 'tenant')
     .in('id', userIds)
   return (data ?? []) as unknown as TenantRow[]
@@ -197,7 +196,7 @@ export async function searchTenants(query: string): Promise<TenantRow[]> {
   const { data } = await sb
     .from('users')
     .select(`
-      id, phone, full_name, role, is_profile_complete, tenant_status, has_debt,
+      id, phone, full_name, role, is_profile_complete, tenant_status,
       tenant_profiles(avatar_url, profile_status),
       room_tenants!user_id(
         is_primary, left_at,
