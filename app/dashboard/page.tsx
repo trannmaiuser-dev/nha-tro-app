@@ -6,6 +6,7 @@ import { getRoomsByTenant, getTenantsByRoom } from '@/lib/db/room-tenants'
 import { getOverdueInvoicesByRoom, type OverdueInvoice } from '@/lib/db/invoices'
 import { processDebtForRoom } from '@/lib/debt-notify'
 import { notifyMeterReadingIfDue } from '@/lib/meter-notify'
+import { notifyContractsExpiringSoon } from '@/lib/contract-notify'
 import { getSetting } from '@/lib/db/settings'
 import OwnerDashboard from '@/components/OwnerDashboard'
 import TenantDashboard from '@/components/TenantDashboard'
@@ -43,9 +44,11 @@ export default async function DashboardPage() {
   if (user.role === 'owner') {
     ownerRooms = await getAllRoomsWithTenants()
 
-    // T-039: on-page check — nếu hôm nay là ngày chốt chỉ số + chưa notify tháng này,
-    // dispatch notification + push (best-effort, fire-and-forget chấp nhận trễ render).
+    // T-039: on-page check — meter reading day reminder
     await notifyMeterReadingIfDue(user.userId)
+
+    // T-042: on-page check — hợp đồng sắp hết hạn (30 ngày tới), dedup 1/tháng
+    await notifyContractsExpiringSoon(user.userId)
 
     // T-038: aggregate "Việc cần làm hôm nay" (requirements §4).
     const today = new Date()

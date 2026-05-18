@@ -11,6 +11,8 @@ export interface TenantRow extends User {
   has_debt: boolean
   tenant_profiles?: TenantProfile | null
   room?: { id: string; name: string; floor: number } | null
+  /** T-042: active membership info — null nếu không có active membership. */
+  active_membership?: { id: string; contract_end_date: string | null } | null
 }
 
 // ─── Tạo tài khoản khách thuê mới (UC-01) ────────────────────
@@ -57,14 +59,23 @@ export async function createTenantAccount(
 // T-016b: helper extract primary active room từ room_tenants nested select.
 // Replace pattern cũ `rooms!tenant_id(...)` (1-1 join qua legacy column).
 type TenantMembershipShape = {
-  is_primary: boolean
-  left_at:    string | null
-  room:       { id: string; name: string; floor: number } | { id: string; name: string; floor: number }[] | null
+  id?:                string  // T-042: cần để client edit contract_end_date
+  contract_end_date?: string | null
+  is_primary:         boolean
+  left_at:            string | null
+  room:               { id: string; name: string; floor: number } | { id: string; name: string; floor: number }[] | null
 }
 function extractPrimaryRoom(memberships: TenantMembershipShape[] | undefined | null) {
   const active = (memberships ?? []).find(m => m.is_primary && m.left_at === null)
   if (!active?.room) return null
   return Array.isArray(active.room) ? active.room[0] : active.room
+}
+
+// T-042: extract active membership (id + contract_end_date) cho UI edit.
+function extractActiveMembership(memberships: TenantMembershipShape[] | undefined | null) {
+  const active = (memberships ?? []).find(m => m.left_at === null)
+  if (!active?.id) return null
+  return { id: active.id, contract_end_date: active.contract_end_date ?? null }
 }
 
 // ─── Lấy tất cả khách thuê ───────────────────────────────────
@@ -76,7 +87,7 @@ export async function getAllTenants(): Promise<TenantRow[]> {
       id, phone, full_name, role, is_profile_complete, tenant_status, has_debt,
       tenant_profiles(id, avatar_url, profile_status),
       room_tenants!user_id(
-        is_primary, left_at,
+        id, contract_end_date, is_primary, left_at,
         room:rooms!room_id(id, name, floor)
       )
     `)
@@ -85,7 +96,7 @@ export async function getAllTenants(): Promise<TenantRow[]> {
   if (error) throw new Error('Không thể lấy danh sách khách thuê')
   return (data ?? []).map(t => {
     const { room_tenants: rt, ...rest } = t as typeof t & { room_tenants: TenantMembershipShape[] }
-    return { ...rest, room: extractPrimaryRoom(rt) }
+    return { ...rest, room: extractPrimaryRoom(rt), active_membership: extractActiveMembership(rt) }
   }) as unknown as TenantRow[]
 }
 

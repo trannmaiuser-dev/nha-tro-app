@@ -5,6 +5,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { createTenantSchema } from '@/lib/schemas/tenant'
 import { createTenantAccount } from '@/lib/db/tenants'
 import { setPrimaryTenant } from '@/lib/db/room-tenants'
+import { createServerSupabaseClient } from '@/lib/supabase-server'
 
 type Result<T = void> = { success: true; data: T } | { success: false; error: string }
 
@@ -75,5 +76,35 @@ export async function setPrimaryAction(roomId: string, userId: string): Promise<
     return { success: true, data: undefined }
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : 'Không thể đổi đại diện' }
+  }
+}
+
+/**
+ * T-042: Owner set/update contract_end_date cho 1 active membership.
+ * Pass null/empty string để clear (chưa biết ngày hết hạn).
+ */
+export async function setContractEndDateAction(membershipId: string, dateStr: string | null): Promise<Result<void>> {
+  try {
+    await verifyOwner()
+    const value = dateStr && dateStr.trim() ? dateStr.trim() : null
+    if (value && !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      return { success: false, error: 'Ngày không hợp lệ (cần định dạng YYYY-MM-DD)' }
+    }
+    const sb = createServerSupabaseClient()
+    const { error } = await sb
+      .from('room_tenants')
+      .update({ contract_end_date: value })
+      .eq('id', membershipId)
+      .is('left_at', null)
+    if (error) return { success: false, error: 'Không thể cập nhật hợp đồng: ' + error.message }
+
+    // T-042: Reset dedup để check lại tháng này (UX: vừa đổi xong muốn thấy reminder/cleared)
+    await sb.from('app_settings').delete().eq('key', 'last_contract_check_ym')
+
+    revalidatePath('/dashboard')
+    revalidatePath('/admin/tenants')
+    return { success: true, data: undefined }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Không thể cập nhật hợp đồng' }
   }
 }
