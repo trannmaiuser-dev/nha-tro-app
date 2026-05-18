@@ -12,7 +12,42 @@
 | **Giai đoạn** | 4 |
 | **Ưu tiên** | 🟡 Trung bình (user-facing impact, follow audit 2026-05-18) |
 | **Ngày tạo** | 2026-05-18 |
-| **Trạng thái** | 🔲 Todo |
+| **Ngày hoàn thành** | 2026-05-18 |
+| **Trạng thái** | 🟢 Done |
+| **Ước lượng thực tế** | ~15 phút (reuse notifyOwner + push pattern T-017) |
+| **Branch** | feature/t037-maintenance-notify |
+
+---
+
+## ACT
+
+### Implementation
+- Single file change: `app/api/maintenance/route.ts` POST
+- Async dispatch function `dispatchMaintenanceNotify` — fire-and-forget với `void ... .catch()` để KHÔNG block return data
+- Notification insert qua existing `notifyOwner` helper (best-effort fail-open)
+- Push notification per owner subscription (best-effort fail-open per-sub)
+
+### Decisions
+- **D1:** Reuse `type='extension_request'` thay vì add type mới 'maintenance_new'. Lý do: tránh ALTER CHECK constraint migration v13. Semantic gần đủ.
+- **D2:** Truncate description 50 chars cho message + push body. UX clean.
+- **D3:** Fire-and-forget pattern (`void async.catch`) thay vì await. Lý do: API response không block dispatch latency. Tenant nhận response ngay sau insert, owner notify async.
+- **D4:** Push data field `type='maintenance_new'` (distinct từ DB type) cho future client-side handler.
+
+### Phase C 12-pattern audit
+- SA1-4: ✅ N/A (API route, không phải server action)
+- SC1-3: ✅ N/A
+- DL1-3: ✅ PASS (createServerSupabaseClient inside, no Result wrapper trong API route)
+- SW1-2: ✅ N/A
+- BN1: ✅ N/A
+
+### Smoke test plan
+| TC | Mô tả | Pass |
+|---|---|---|
+| TC1 | Tenant POST /api/maintenance | Return 200 + maintenance row |
+| TC2 | Verify notifications table row mới type=extension_request, receiver=owner | 1+ row |
+| TC3 | Owner /notifications page | Notification mới hiện top |
+| TC4 | Owner có push sub | Push arrive trên device |
+| TC5 | Truncate description >50 chars trong message + push body | "…" suffix |
 
 ---
 
