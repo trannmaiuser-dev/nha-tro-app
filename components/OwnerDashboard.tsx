@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import type { AuthPayload, RoomWithTenants } from '@/types'
 import CreateTenantModal from '@/components/CreateTenantModal'
+import TodayTasksWidget, { type TodayTasksData } from '@/components/dashboard/TodayTasksWidget'
 import { setPrimaryAction } from '@/app/admin/tenants/actions'
 import { MessageCircle, Bell, LogOut, Building2, User, KeyRound } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -30,6 +31,8 @@ interface Props {
   rooms: RoomWithTenants[]
   payments: Payment[]
   notifications: Notification[]
+  /** T-038: aggregate "Việc cần làm hôm nay" (requirements §4). Null nếu chưa fetch. */
+  todayTasks?: TodayTasksData | null
 }
 
 const notifLabels: Record<string, string> = {
@@ -38,7 +41,7 @@ const notifLabels: Record<string, string> = {
   payment_reminder:   '🔔 Nhắc tiền',
 }
 
-export default function OwnerDashboard({ user, rooms, payments, notifications }: Props) {
+export default function OwnerDashboard({ user, rooms, payments, notifications, todayTasks }: Props) {
   const router = useRouter()
   const [sending, setSending] = useState<string | null>(null)
   const [toast, setToast]     = useState('')
@@ -174,6 +177,9 @@ export default function OwnerDashboard({ user, rooms, payments, notifications }:
       </header>
 
       <div className="max-w-lg mx-auto px-4 pt-6 space-y-5">
+        {/* T-038: Việc cần làm hôm nay (above stats) */}
+        {todayTasks && <TodayTasksWidget data={todayTasks} />}
+
         {/* Stats row */}
         <div className="grid grid-cols-3 gap-3">
           <StatCard Icon={Building2} label="Tổng phòng" value={rooms.length} color="primary" />

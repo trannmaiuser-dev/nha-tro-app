@@ -5,9 +5,11 @@ import { getAllRoomsWithTenants } from '@/lib/db/rooms'
 import { getRoomsByTenant, getTenantsByRoom } from '@/lib/db/room-tenants'
 import { getOverdueInvoicesByRoom, type OverdueInvoice } from '@/lib/db/invoices'
 import { processDebtForRoom } from '@/lib/debt-notify'
+import { getSetting } from '@/lib/db/settings'
 import OwnerDashboard from '@/components/OwnerDashboard'
 import TenantDashboard from '@/components/TenantDashboard'
 import PushNotificationSetup from '@/components/PushNotificationSetup'
+import type { TodayTasksData } from '@/components/dashboard/TodayTasksWidget'
 import type { Payment, RoomWithTenants } from '@/types'
 
 // T-021b: opt-out caching để revalidatePath từ approveMoveRequestAction
@@ -36,8 +38,33 @@ export default async function DashboardPage() {
   let otherTenants: Array<{ user_id: string; full_name: string; is_primary: boolean }> = []
   let overdueInvoices: OverdueInvoice[] = []
 
+  let todayTasks: TodayTasksData | null = null
   if (user.role === 'owner') {
     ownerRooms = await getAllRoomsWithTenants()
+
+    // T-038: aggregate "Việc cần làm hôm nay" (requirements §4).
+    const today = new Date()
+    const meterReadingDayRaw = await getSetting<string | number>('meter_reading_day')
+    const meterReadingDay = Number(meterReadingDayRaw ?? 1) || 1
+    const isMeterReadingDay = today.getDate() === meterReadingDay
+
+    const [overdueRes, pendingMoveRes, pendingProofRes] = await Promise.all([
+      sb.from('invoices').select('total, paid_amount', { count: 'exact' }).eq('has_debt', true),
+      sb.from('move_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+      sb.from('payment_proofs').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+    ])
+    const overdueTotalAmount = (overdueRes.data ?? []).reduce(
+      (sum, inv) => sum + Math.max(0, (inv.total ?? 0) - (inv.paid_amount ?? 0)),
+      0,
+    )
+    todayTasks = {
+      overdueInvoicesCount: overdueRes.count ?? 0,
+      overdueTotalAmount,
+      pendingMoveCount:     pendingMoveRes.count ?? 0,
+      pendingProofCount:    pendingProofRes.count ?? 0,
+      isMeterReadingDay,
+      meterReadingDay,
+    }
   } else {
     const memberships = await getRoomsByTenant(user.userId, true)
     if (memberships.length > 0 && memberships[0].room) {
@@ -97,6 +124,7 @@ export default async function DashboardPage() {
           rooms={ownerRooms}
           payments={payments}
           notifications={notifications ?? []}
+          todayTasks={todayTasks}
         />
       ) : (
         <TenantDashboard
