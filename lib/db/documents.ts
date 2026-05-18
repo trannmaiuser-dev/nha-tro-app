@@ -123,3 +123,84 @@ export async function getDocumentSignedUrl(filePath: string): Promise<string> {
   if (error || !data) throw new Error('Không thể tạo link xem file: ' + (error?.message ?? 'unknown'))
   return data.signedUrl
 }
+
+/* ───────────── T-034 Tenant view (Phase 2) ──────────────── */
+
+/**
+ * Lấy danh sách docs tenant được phép xem:
+ *   - tenant_id = userId (docs gắn cá nhân)
+ *   - HOẶC room_id = phòng active của user (docs gắn phòng họ ở)
+ *
+ * KHÔNG bao gồm:
+ *   - Building-wide docs (room_id NULL + tenant_id NULL) — confidential, owner-only
+ *   - Docs gắn tenant khác
+ *
+ * Phương thức: 2 query (rooms của tenant + docs filter) thay vì subquery để
+ * tránh Supabase JS chain limitation.
+ */
+export async function getDocumentsForTenant(userId: string): Promise<DocumentWithJoins[]> {
+  const sb = createServerSupabaseClient()
+
+  // 1. Lấy room_id active của tenant
+  const { data: memberships } = await sb
+    .from('room_tenants')
+    .select('room_id')
+    .eq('user_id', userId)
+    .is('left_at', null)
+  const roomIds = (memberships ?? []).map(m => m.room_id)
+
+  // 2. Build OR filter: tenant_id=userId hoặc room_id in roomIds
+  let orFilter = `tenant_id.eq.${userId}`
+  if (roomIds.length > 0) {
+    orFilter += `,room_id.in.(${roomIds.join(',')})`
+  }
+
+  const { data, error } = await sb
+    .from('documents')
+    .select(`
+      id, category_id, room_id, tenant_id, name, file_url, file_type, file_size,
+      uploaded_by, uploaded_at, deleted_at,
+      category:document_categories!category_id(id, name),
+      room:rooms!room_id(id, name, floor),
+      tenant:users!tenant_id(id, full_name, phone)
+    `)
+    .is('deleted_at', null)
+    .or(orFilter)
+    .order('uploaded_at', { ascending: false })
+
+  if (error) throw new Error('Không thể tải giấy tờ')
+  return (data ?? []) as unknown as DocumentWithJoins[]
+}
+
+/**
+ * Verify 1 document có thuộc về tenant không (cho tenant action signed URL).
+ * Return TRUE nếu:
+ *   - doc.tenant_id = userId, HOẶC
+ *   - doc.room_id ∈ phòng active của user.
+ * Throw Error nếu không thuộc.
+ */
+export async function assertDocumentBelongsToTenant(docId: string, userId: string): Promise<DocumentRow> {
+  const sb = createServerSupabaseClient()
+  const { data: doc } = await sb
+    .from('documents')
+    .select('id, category_id, room_id, tenant_id, name, file_url, file_type, file_size, uploaded_by, uploaded_at, deleted_at')
+    .eq('id', docId)
+    .is('deleted_at', null)
+    .maybeSingle()
+  if (!doc) throw new Error('Không tìm thấy giấy tờ')
+
+  if (doc.tenant_id === userId) return doc as DocumentRow
+
+  if (doc.room_id) {
+    const { data: membership } = await sb
+      .from('room_tenants')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('room_id', doc.room_id)
+      .is('left_at', null)
+      .maybeSingle()
+    if (membership) return doc as DocumentRow
+  }
+
+  throw new Error('Bạn không có quyền xem giấy tờ này')
+}

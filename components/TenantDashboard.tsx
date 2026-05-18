@@ -276,6 +276,29 @@ export default function TenantDashboard({ user, room, payments, notifications, o
                     <p className="text-sm text-primary-400 mt-1">Tháng này bạn đã hoàn thành thanh toán</p>
                   </div>
                 )}
+
+                {/* T-034: tenant quick nav grid (đồng thời cover /tenant/* routes) */}
+                <div className="card">
+                  <h3 className="font-black text-gray-800 mb-3">🔗 Truy cập nhanh</h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    <a href="/tenant/documents" className="flex flex-col items-center gap-1 py-3 bg-blue-50 hover:bg-blue-100 rounded-2xl transition-colors">
+                      <span className="text-2xl">📄</span>
+                      <span className="text-xs font-bold text-blue-700">Giấy tờ</span>
+                    </a>
+                    <a href="/tenant/payments" className="flex flex-col items-center gap-1 py-3 bg-emerald-50 hover:bg-emerald-100 rounded-2xl transition-colors">
+                      <span className="text-2xl">💳</span>
+                      <span className="text-xs font-bold text-emerald-700">Thanh toán</span>
+                    </a>
+                    <a href="/tenant/move-out" className="flex flex-col items-center gap-1 py-3 bg-orange-50 hover:bg-orange-100 rounded-2xl transition-colors">
+                      <span className="text-2xl">🚪</span>
+                      <span className="text-xs font-bold text-orange-700">Báo chuyển</span>
+                    </a>
+                    <a href="/tenant/guests" className="flex flex-col items-center gap-1 py-3 bg-purple-50 hover:bg-purple-100 rounded-2xl transition-colors">
+                      <span className="text-2xl">👥</span>
+                      <span className="text-xs font-bold text-purple-700">Khách đến</span>
+                    </a>
+                  </div>
+                </div>
               </>
             )}
           </div>
