@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { getCurrentUser } from '@/lib/auth'
 import { createTenantSchema } from '@/lib/schemas/tenant'
 import { createTenantAccount } from '@/lib/db/tenants'
+import { setPrimaryTenant } from '@/lib/db/room-tenants'
 
 type Result<T = void> = { success: true; data: T } | { success: false; error: string }
 
@@ -55,5 +56,22 @@ export async function createTenantAction(input: unknown): Promise<Result<{
     }
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : 'Không thể tạo tài khoản' }
+  }
+}
+
+/**
+ * T-032: Owner set 1 tenant làm primary của phòng (đại diện).
+ * Helper setPrimaryTenant tự handle unset primary cũ + set primary mới atomic.
+ */
+export async function setPrimaryAction(roomId: string, userId: string): Promise<Result<void>> {
+  try {
+    await verifyOwner()
+    await setPrimaryTenant(roomId, userId)
+    revalidatePath('/dashboard')
+    revalidatePath('/rooms')
+    revalidatePath('/admin/tenants')
+    return { success: true, data: undefined }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Không thể đổi đại diện' }
   }
 }

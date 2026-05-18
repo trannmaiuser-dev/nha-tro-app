@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import type { AuthPayload, RoomWithTenants } from '@/types'
 import CreateTenantModal from '@/components/CreateTenantModal'
+import { setPrimaryAction } from '@/app/admin/tenants/actions'
 import { MessageCircle, Bell, LogOut, Building2, User, KeyRound } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -47,6 +48,8 @@ export default function OwnerDashboard({ user, rooms, payments, notifications }:
   // T-019: track room đang được pre-select khi mở modal từ button của 1 room cụ thể.
   // null = mở mặc định (vd FAB nếu có); string = roomId pre-select.
   const [createTargetRoom, setCreateTargetRoom] = useState<string | null>(null)
+  // T-032: track tenant đang được set-primary (loading state cho button)
+  const [settingPrimary, setSettingPrimary] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/messages/unread').then(r => r.json()).then(d => setUnreadChat(d.count ?? 0)).catch(() => {})
@@ -71,6 +74,26 @@ export default function OwnerDashboard({ user, rooms, payments, notifications }:
     return payments
       .filter(p => p.room_id === roomId)
       .sort((a, b) => new Date(b.due_date).getTime() - new Date(a.due_date).getTime())[0]
+  }
+
+  // T-032: handler set-primary với confirm dialog
+  async function handleSetPrimary(roomId: string, roomName: string, userId: string, userName: string, currentPrimaryName?: string) {
+    const msg = currentPrimaryName
+      ? `Đặt ${userName} làm đại diện phòng ${roomName} thay cho ${currentPrimaryName}?`
+      : `Đặt ${userName} làm đại diện phòng ${roomName}?`
+    if (!confirm(msg)) return
+    setSettingPrimary(userId)
+    try {
+      const res = await setPrimaryAction(roomId, userId)
+      if (!res.success) {
+        showToast(`❌ ${res.error}`)
+        return
+      }
+      showToast(`👑 Đã đặt ${userName} làm đại diện`)
+      router.refresh()
+    } finally {
+      setSettingPrimary(null)
+    }
   }
 
   async function sendReminder(room: RoomWithTenants) {
@@ -215,6 +238,17 @@ export default function OwnerDashboard({ user, rooms, payments, notifications }:
                                 <p className="font-bold text-sm text-gray-700 truncate">{t.user.full_name}</p>
                                 <p className="text-xs text-gray-400">{t.user.phone}</p>
                               </div>
+                              {/* T-032: button "Đặt làm đại diện" cho non-primary trong phòng có >1 tenant */}
+                              {!t.is_primary && room.tenants.length > 1 && (
+                                <button
+                                  onClick={() => handleSetPrimary(room.id, room.name, t.user_id, t.user.full_name, primary?.user.full_name)}
+                                  disabled={settingPrimary === t.user_id}
+                                  className="text-[10px] font-bold px-2 py-1 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 border border-yellow-200 rounded-full shrink-0 transition-colors disabled:opacity-50"
+                                  title="Đặt làm đại diện phòng"
+                                >
+                                  {settingPrimary === t.user_id ? '⏳' : '👑'}
+                                </button>
+                              )}
                               {t.is_primary && (
                                 <span className="text-[10px] font-bold px-2 py-0.5 bg-primary-500 text-white rounded-full shrink-0">
                                   Đại diện

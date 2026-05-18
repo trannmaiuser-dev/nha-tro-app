@@ -12,8 +12,10 @@
 | **Giai đoạn** | 1 |
 | **Ưu tiên** | 🟢 Thấp (nice-to-have, defer từ T-019 D4) |
 | **Ngày tạo** | 2026-05-18 |
-| **Ngày hoàn thành** | — |
-| **Trạng thái** | 🔲 Todo |
+| **Ngày hoàn thành** | 2026-05-18 |
+| **Trạng thái** | 🟢 Done |
+| **Ước lượng thực tế** | ~20 phút (spec 45p — helper đã có từ T-016) |
+| **Branch** | feature/t032-make-primary-swap |
 
 ---
 
@@ -93,6 +95,56 @@ task/done/done.032-*.md                            # this file (rename khi done)
 
 ---
 
-## 🎬 7. ACT (fill cuối session)
+## 🎬 7. ACT (autonomous mode)
 
-- ...
+### Implementation summary
+
+- **Files**: `app/admin/tenants/actions.ts` (+12 lines `setPrimaryAction`), `components/OwnerDashboard.tsx` (+1 import + +1 state + +1 handler + 1 button block)
+- **Helper reuse**: `setPrimaryTenant` ([lib/db/room-tenants.ts:182](lib/db/room-tenants.ts:182)) đã exist từ T-016 — atomic unset old primary + set new primary trong cùng 2 update.
+- **UX**: button 👑 nhỏ trên mỗi tenant non-primary trong phòng có >1 tenant. browser confirm() dialog hỏi xác nhận với tên cũ + mới. Toast feedback.
+
+### Decisions (Tier LOW autonomous)
+
+- **D1:** Button chỉ hiện khi phòng có >1 tenant. Lý do: phòng 1 người, button vô nghĩa (đã là primary mặc nhiên).
+- **D2:** browser `confirm()` thay vì custom ConfirmDialog component. Lý do: simple action, ConfirmDialog component chưa tồn tại sẵn (theo CLAUDE.md sẽ tạo Module 3). Native confirm đủ MVP, có thể nâng cấp sau.
+- **D3:** Toast message "👑 Đã đặt X làm đại diện" — emoji highlight, không quá verbose.
+- **D4:** `router.refresh()` sau action success — pattern SA3 chuẩn.
+- **D5:** Action revalidate 3 paths: /dashboard (OwnerDashboard render), /rooms (room list nếu có primary indicator), /admin/tenants (tenant list nếu show room/primary).
+
+### Phase C 12-pattern audit
+
+| Pattern | Check | Result |
+|---|---|---|
+| SA1 [HIGH/CODE] | setPrimaryAction has revalidatePath × 3 | ✅ PASS |
+| SA2 [HIGH/CODE] | /dashboard, /rooms, /admin/tenants — all exist | ✅ PASS |
+| SA3 [MEDIUM/CODE] | handleSetPrimary calls router.refresh() after success | ✅ PASS |
+| SA4 [MEDIUM/CODE] | Action wraps try/catch returns Result<void> | ✅ PASS |
+| SC1-3 | No SC change | ✅ N/A |
+| DL1-3 | No new lib/db helper | ✅ N/A |
+| SW1-2 | No SW change | ✅ N/A |
+| BN1 | No new Image | ✅ N/A |
+
+All PASS hoặc N/A.
+
+### ACT bài học
+
+1. **Reuse helper từ task cũ → giảm 50% scope.** (CODE)
+   - `setPrimaryTenant` đã exist từ T-016 Phase B, đã handle unset old + set new atomic.
+   - Task này chỉ cần: server action wrapper + UI button.
+   - Pattern: trước khi implement, search "đã có hàm nào tương tự chưa?"
+
+2. **Native browser confirm() đủ cho MVP action quan trọng.** (CODE)
+   - Custom ConfirmDialog component đẹp hơn nhưng tốn thêm 30-60p implement.
+   - Native confirm() handles dialog UX, cancel button, focus management.
+   - Pattern: pick native API khi đủ, defer custom UI cho version sau.
+
+3. **Button conditional render (>1 tenant) tránh UI confusion.** (CODE — D1)
+   - Phòng 1 người, button "Đặt làm đại diện" vô nghĩa.
+   - Hide thay vì show-disabled — UX clearer, không clutter.
+   - Pattern: prefer hide over show-disabled for "không applicable" state.
+
+---
+
+## Smoke test (defer — user mệt)
+
+TC1-TC3 trong section VERIFY. User run khi rảnh sau khi back to work.
