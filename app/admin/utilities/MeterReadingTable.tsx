@@ -84,7 +84,69 @@ export default function MeterReadingTable({
 
   return (
     <div className="space-y-4">
-      <div className="bg-white rounded-2xl shadow-soft overflow-hidden">
+      {/* Mobile: card per room (T-044) */}
+      <div className="md:hidden space-y-3">
+        {rows.map((r, i) => {
+          const usage = r.curr_kwh === '' || r.curr_kwh == null
+            ? null
+            : Number(r.curr_kwh) - r.prev_kwh
+          const waterUsage =
+            hasWaterM3 && r.curr_water_m3 !== '' && r.curr_water_m3 != null && r.prev_water_m3 != null
+              ? Number(r.curr_water_m3) - r.prev_water_m3
+              : null
+          const hasValue = r.curr_kwh !== '' && r.curr_kwh != null
+
+          return (
+            <div key={r.room_id} className="card space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-black text-gray-800">Phòng {r.room_name}</h3>
+                {hasValue ? <span className="badge-green">Đã nhập</span> : <span className="badge-orange">Trống</span>}
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Điện (kWh)</label>
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-gray-400 shrink-0">Cũ: {r.prev_kwh.toLocaleString('vi-VN')}</span>
+                  <span className="text-gray-300">→</span>
+                  <input
+                    type="number" min={0}
+                    value={r.curr_kwh}
+                    onChange={e => updateRow(i, { curr_kwh: e.target.value === '' ? '' : Number(e.target.value) })}
+                    className="input-field flex-1 text-right py-1.5"
+                    placeholder="Số mới"
+                  />
+                </div>
+                <p className={`text-xs mt-1 font-bold ${usage != null && usage < 0 ? 'text-red-500' : 'text-primary-600'}`}>
+                  Tiêu thụ: {usage == null ? '—' : `${usage.toLocaleString('vi-VN')} kWh`}
+                </p>
+              </div>
+
+              {hasWaterM3 && (
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nước (m³)</label>
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-gray-400 shrink-0">Cũ: {r.prev_water_m3 ?? '—'}</span>
+                    <span className="text-gray-300">→</span>
+                    <input
+                      type="number" min={0}
+                      value={r.curr_water_m3 ?? ''}
+                      onChange={e => updateRow(i, { curr_water_m3: e.target.value === '' ? '' : Number(e.target.value) })}
+                      className="input-field flex-1 text-right py-1.5"
+                      placeholder="Số mới"
+                    />
+                  </div>
+                  {waterUsage != null && waterUsage < 0 && (
+                    <p className="text-xs text-red-500 mt-1">⚠️ Nước giảm — kiểm tra lại</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Desktop: table */}
+      <div className="hidden md:block bg-white rounded-2xl shadow-soft overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-gray-500 text-xs font-bold uppercase">
