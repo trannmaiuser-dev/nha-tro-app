@@ -147,6 +147,10 @@ export interface MoveRequest {
   id:             string
   user_id:        string
   room_id:        string
+  /** T-020: nullable. NULL = move-out, NOT NULL = transfer sang phòng khác. */
+  transfer_to_room_id?: string | null
+  /** T-020: 'tenant' = khách request, 'owner' = chủ propose. */
+  initiated_by?:  'tenant' | 'owner'
   requested_date: string
   reason:         string | null
   status:         MoveRequestStatus

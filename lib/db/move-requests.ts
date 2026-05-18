@@ -126,3 +126,77 @@ export async function cancelMoveRequest(requestId: string, userId: string): Prom
   await sb.from('move_requests').delete().eq('id', requestId)
   await sb.from('users').update({ tenant_status: 'active' }).eq('id', userId)
 }
+
+/* ────────── T-020 Transfer (UC-08) ────────── */
+
+/**
+ * Tạo transfer request (khác move-out: có transfer_to_room_id).
+ *
+ * Validation cần thực hiện ở server action layer trước khi gọi (ngày, invoice, room availability).
+ * Function này chỉ thực hiện DB insert.
+ */
+export async function createTransferRequest(
+  userId:     string,
+  fromRoomId: string,
+  toRoomId:   string,
+  requestedDate: string,
+  initiatedBy: 'tenant' | 'owner',
+  reason?:    string,
+): Promise<MoveRequest> {
+  const sb = createServerSupabaseClient()
+
+  // Reject duplicate pending transfer cho user này
+  const { data: existing } = await sb
+    .from('move_requests')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('status', 'pending')
+    .maybeSingle()
+  if (existing) throw new Error('Bạn đã có yêu cầu đang chờ duyệt')
+
+  const { data, error } = await sb
+    .from('move_requests')
+    .insert({
+      user_id:             userId,
+      room_id:             fromRoomId,
+      transfer_to_room_id: toRoomId,
+      requested_date:      requestedDate,
+      reason:              reason ?? null,
+      initiated_by:        initiatedBy,
+    })
+    .select()
+    .single()
+  if (error) throw new Error('Không thể tạo yêu cầu chuyển phòng: ' + error.message)
+
+  // Set tenant_status = pending_move (như createMoveRequest cho move-out)
+  await sb.from('users').update({ tenant_status: 'pending_move' }).eq('id', userId)
+
+  // Notify owner
+  const { data: owner } = await sb.from('users').select('id').eq('role', 'owner').limit(1).single()
+  if (owner) {
+    const { data: user } = await sb.from('users').select('full_name, phone').eq('id', userId).single()
+    const { data: fromRoom } = await sb.from('rooms').select('name').eq('id', fromRoomId).single()
+    const { data: toRoom }   = await sb.from('rooms').select('name').eq('id', toRoomId).single()
+    await sb.from('notifications').insert({
+      sender_id:   userId,
+      receiver_id: owner.id,
+      type:        'extension_request',
+      message:     `${user?.full_name ?? user?.phone} xin chuyển từ phòng ${fromRoom?.name} sang phòng ${toRoom?.name} vào ${requestedDate}`,
+    })
+  }
+
+  return data as MoveRequest
+}
+
+/**
+ * Approve transfer request — atomic execute via PG function `transfer_tenant`.
+ * Replicate removeTenantFromRoom + addTenantToRoom trong cùng transaction (T-020 v20).
+ */
+export async function approveTransferRequest(requestId: string, reviewerId: string): Promise<void> {
+  const sb = createServerSupabaseClient()
+  const { error } = await sb.rpc('transfer_tenant', {
+    p_request_id:  requestId,
+    p_reviewer_id: reviewerId,
+  })
+  if (error) throw new Error(error.message || 'Không thể duyệt chuyển phòng')
+}

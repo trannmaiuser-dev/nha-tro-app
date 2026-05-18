@@ -2,8 +2,9 @@
 
 import { revalidatePath } from 'next/cache'
 import { getCurrentUser } from '@/lib/auth'
-import { moveRequestSchema } from '@/lib/schemas/move-request'
-import { createMoveRequest, cancelMoveRequest } from '@/lib/db/move-requests'
+import { moveRequestSchema, transferRequestSchema } from '@/lib/schemas/move-request'
+import { createMoveRequest, cancelMoveRequest, createTransferRequest } from '@/lib/db/move-requests'
+import { validateTransferRequest } from '@/lib/utils/transfer-validation'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 
 type Result<T = void> = { success: true; data: T } | { success: false; error: string }
@@ -38,6 +39,51 @@ export async function createMoveRequestAction(input: unknown): Promise<Result> {
     return { success: true, data: undefined }
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : 'Không thể gửi yêu cầu' }
+  }
+}
+
+/**
+ * T-020 — Tenant tạo transfer request (chuyển sang phòng khác trong dãy).
+ * Phòng nguồn auto-detect từ room_tenants. Validate ngày 1-5 + invoice unpaid + room đích.
+ */
+export async function createTransferRequestAction(input: unknown): Promise<Result> {
+  try {
+    const user = await verifyTenant()
+    const parsed = transferRequestSchema.safeParse(input)
+    if (!parsed.success) return { success: false, error: parsed.error.issues[0].message }
+
+    // Lấy room nguồn
+    const sb = createServerSupabaseClient()
+    const { data: membership } = await sb
+      .from('room_tenants')
+      .select('room_id')
+      .eq('user_id', user.userId)
+      .is('left_at', null)
+      .limit(1)
+      .maybeSingle()
+    if (!membership) return { success: false, error: 'Bạn chưa được gán phòng' }
+
+    // Validate (ngày 1-5 + room đích + invoice unpaid)
+    const check = await validateTransferRequest({
+      fromRoomId: membership.room_id,
+      toRoomId:   parsed.data.transfer_to_room_id,
+    })
+    if (!check.ok) return { success: false, error: check.reason ?? 'Validation fail' }
+
+    await createTransferRequest(
+      user.userId,
+      membership.room_id,
+      parsed.data.transfer_to_room_id,
+      parsed.data.requested_date,
+      'tenant',
+      parsed.data.reason,
+    )
+    revalidatePath('/tenant/move-out')
+    revalidatePath('/admin/move-requests')
+    revalidatePath('/notifications')
+    return { success: true, data: undefined }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Không thể gửi yêu cầu chuyển phòng' }
   }
 }
 
