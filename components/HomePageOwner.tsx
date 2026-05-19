@@ -140,7 +140,7 @@ export default function HomePageOwner({ user, stats }: { user: AuthPayload; stat
       desc: 'Xem tình trạng các phòng',
       Icon: Building2,
       colors: CARD_COLORS.rooms,
-      onClick: () => router.push('/dashboard'),
+      onClick: () => router.push('/rooms'),
     },
     {
       id: 'tenants',
@@ -149,7 +149,7 @@ export default function HomePageOwner({ user, stats }: { user: AuthPayload; stat
       Icon: UserCheck,
       badge: stats.unconfirmedProfiles > 0 ? { count: stats.unconfirmedProfiles, color: 'bg-red-500' } : null,
       colors: CARD_COLORS.tenants,
-      onClick: () => router.push('/dashboard'),
+      onClick: () => router.push('/admin/tenants'),
     },
     {
       id: 'chat',
@@ -167,7 +167,7 @@ export default function HomePageOwner({ user, stats }: { user: AuthPayload; stat
       Icon: BellRing,
       badge: stats.pendingNotifs > 0 ? { count: stats.pendingNotifs, color: 'bg-yellow-400' } : null,
       colors: CARD_COLORS.notifs,
-      onClick: () => router.push('/dashboard'),
+      onClick: () => router.push('/notifications'),
     },
     {
       id: 'payments',
@@ -176,7 +176,7 @@ export default function HomePageOwner({ user, stats }: { user: AuthPayload; stat
       Icon: Wallet,
       badge: stats.overduePayments > 0 ? { count: stats.overduePayments, color: 'bg-red-500' } : null,
       colors: CARD_COLORS.payments,
-      onClick: () => router.push('/dashboard'),
+      onClick: () => router.push('/admin/finance/payments'),
     },
     {
       id: 'docs',
@@ -193,7 +193,7 @@ export default function HomePageOwner({ user, stats }: { user: AuthPayload; stat
       desc: 'Tùy chỉnh hệ thống',
       Icon: Settings2,
       colors: CARD_COLORS.settings,
-      onClick: () => showToastMsg('Sắp ra mắt! 🔧'),
+      onClick: () => router.push('/admin/settings'),
     },
     {
       id: 'add-tenant',
