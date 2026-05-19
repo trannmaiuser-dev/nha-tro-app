@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { AuthPayload, AppNotification } from '@/types'
-import { ChevronLeft, Bell, CheckCircle2, Calendar, XCircle, MessageCircle } from 'lucide-react'
+import { ChevronLeft, Bell, CheckCircle2, Calendar, XCircle, MessageCircle, Send } from 'lucide-react'
 
 interface Props { currentUser: AuthPayload; notifications: AppNotification[] }
 
@@ -16,12 +16,14 @@ function NotifIcon({ type, pending }: { type: string; pending: boolean }) {
     case 'extension_request':  return <Calendar {...p} />
     case 'extension_approved': return <CheckCircle2 {...p} />
     case 'extension_rejected': return <XCircle {...p} />
+    case 'compose_message':    return <Send {...p} />
     default:                   return <MessageCircle {...p} />
   }
 }
 const TYPE_LABELS: Record<string, string> = {
   payment_reminder:   'Nhắc tiền thuê', payment_confirmed: 'Đã thanh toán',
   extension_request:  'Xin gia hạn',    extension_approved: 'Gia hạn được duyệt', extension_rejected: 'Gia hạn từ chối',
+  compose_message:    'Thông báo cá nhân',
 }
 
 function timeAgo(iso: string) {
@@ -45,6 +47,13 @@ export default function NotificationsPage({ currentUser, notifications }: Props)
     setList(prev => prev.map(n => n.id === id ? { ...n, status: action } : n))
   }
 
+  async function handleAck(id: string) {
+    const res = await fetch(`/api/notifications/${id}/ack`, { method: 'POST' })
+    if (res.ok) {
+      setList(prev => prev.map(n => n.id === id ? { ...n, status: 'read' } : n))
+    }
+  }
+
   return (
     <div className="min-h-screen" style={{ background: 'linear-gradient(160deg, #FFF8F0 0%, #EEF7FF 100%)' }}>
       <header className="bg-white shadow-soft px-4 pb-4 flex items-center gap-3"
@@ -52,10 +61,14 @@ export default function NotificationsPage({ currentUser, notifications }: Props)
         <button onClick={() => router.back()} className="p-2 text-gray-400 active:scale-95 transition-all">
           <ChevronLeft size={22} strokeWidth={2} />
         </button>
-        <div>
+        <div className="flex-1">
           <h1 className="text-lg font-black text-gray-800">Thông báo</h1>
           {unread > 0 && <p className="text-xs text-gray-400">{unread} chưa đọc</p>}
         </div>
+        <button onClick={() => router.push('/notifications/compose')}
+          className="btn-primary text-xs px-3 py-2">
+          ✏️ Soạn
+        </button>
       </header>
 
       <div className="max-w-lg mx-auto px-4 pt-4 space-y-2">
@@ -91,6 +104,14 @@ export default function NotificationsPage({ currentUser, notifications }: Props)
                   <button onClick={() => handleAction(notif.id, 'rejected')}
                     className="flex-1 bg-red-50 text-red-400 font-bold rounded-xl py-2 text-sm active:scale-95 transition-all">
                     ✗ Từ chối
+                  </button>
+                </div>
+              )}
+              {notif.status === 'pending' && notif.type === 'compose_message' && notif.compose_id && (
+                <div className="mt-3 pt-3 border-t border-gray-50">
+                  <button onClick={() => handleAck(notif.id)}
+                    className="w-full bg-primary-600 text-white font-bold rounded-xl py-2 text-sm active:scale-95 transition-all">
+                    ✓ Đã đọc / Xác nhận
                   </button>
                 </div>
               )}

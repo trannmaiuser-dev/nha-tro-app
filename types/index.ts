@@ -45,6 +45,9 @@ export type NotificationType =
   | 'extension_request'
   | 'extension_approved'
   | 'extension_rejected'
+  | 'meter_reading_reminder'
+  | 'contract_renewal_reminder'
+  | 'compose_message'
 
 export interface AppNotification {
   id: string
@@ -54,6 +57,7 @@ export interface AppNotification {
   message: string
   status: 'pending' | 'read' | 'accepted' | 'rejected'
   created_at: string
+  compose_id?: string | null
   sender?: Pick<User, 'full_name' | 'phone'>
 }
 
