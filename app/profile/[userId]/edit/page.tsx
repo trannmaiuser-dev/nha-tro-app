@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation'
+import { redirect, notFound } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import ProfileEditForm from '@/components/ProfileEditForm'
@@ -6,16 +6,25 @@ import type { TenantProfile, TenantDocument } from '@/types'
 
 export const dynamic = 'force-dynamic'
 
-export default async function ProfileEditPage() {
+export default async function TenantProfileEditPage({ params }: { params: { userId: string } }) {
   const user = await getCurrentUser()
   if (!user) redirect('/login')
-  if (user.role !== 'owner') redirect('/profile/setup')
+  if (user.role !== 'owner') redirect('/dashboard')
 
   const sb = createServerSupabaseClient()
+
+  const { data: targetUser } = await sb
+    .from('users')
+    .select('id, role, full_name, phone')
+    .eq('id', params.userId)
+    .maybeSingle()
+  if (!targetUser) notFound()
+  if (targetUser.role !== 'tenant') redirect(`/profile/${params.userId}`)
+
   const { data: profile } = await sb
     .from('tenant_profiles')
     .select('*')
-    .eq('user_id', user.userId)
+    .eq('user_id', params.userId)
     .maybeSingle()
 
   const documents: TenantDocument[] = profile
@@ -29,15 +38,15 @@ export default async function ProfileEditPage() {
 
   return (
     <ProfileEditForm
-      headerTitle="Sửa hồ sơ chủ trọ"
-      cancelHref="/profile"
-      successHref="/profile"
-      defaultOccupation="Chủ trọ"
-      phone={user.phone}
-      initialFullName={user.fullName}
+      headerTitle={`Sửa hồ sơ: ${targetUser.full_name || 'khách'}`}
+      cancelHref={`/profile/${params.userId}`}
+      successHref={`/profile/${params.userId}`}
+      phone={targetUser.phone || ''}
+      initialFullName={targetUser.full_name || ''}
       initialProfile={profile as TenantProfile | null}
       initialDocuments={documents}
-      saveEndpoint="/api/profile/owner-save"
+      saveEndpoint="/api/admin/tenant-profile-save"
+      targetUserId={params.userId}
     />
   )
 }

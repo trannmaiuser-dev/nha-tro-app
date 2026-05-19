@@ -4,7 +4,7 @@ import Image from 'next/image'
 import { useState, ChangeEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import SelectUI from '@/components/ui/Select'
-import type { AuthPayload, TenantProfile, TenantDocument } from '@/types'
+import type { TenantProfile, TenantDocument } from '@/types'
 
 const GENDER_OPTIONS = [
   { value: 'male', label: 'Nam' },
@@ -13,12 +13,30 @@ const GENDER_OPTIONS = [
 ]
 
 interface Props {
-  currentUser:      AuthPayload
+  // Display config
+  headerTitle:   string
+  cancelHref:    string
+  successHref:   string
+  defaultOccupation?: string
+
+  // Identity
+  phone:           string
+  initialFullName: string
+
+  // Data
   initialProfile:   TenantProfile | null
   initialDocuments: TenantDocument[]
+
+  // Save target — endpoint receives body { personal, documents, targetUserId? }
+  saveEndpoint: string
+  targetUserId?: string  // when present, sent in POST body (admin edit other user)
 }
 
-async function uploadFile(endpoint: '/api/upload/avatar' | '/api/upload/document', file: File, type?: string) {
+async function uploadFile(
+  endpoint: '/api/upload/avatar' | '/api/upload/document',
+  file: File,
+  type?: string,
+) {
   const form = new FormData()
   form.append('file', file)
   if (type) form.append('type', type)
@@ -28,15 +46,20 @@ async function uploadFile(endpoint: '/api/upload/avatar' | '/api/upload/document
   return data.url as string
 }
 
-export default function OwnerProfileEditForm({ currentUser, initialProfile, initialDocuments }: Props) {
+export default function ProfileEditForm({
+  headerTitle, cancelHref, successHref, defaultOccupation,
+  phone, initialFullName,
+  initialProfile, initialDocuments,
+  saveEndpoint, targetUserId,
+}: Props) {
   const router = useRouter()
 
   const [avatarUrl,  setAvatarUrl]  = useState(initialProfile?.avatar_url  || '')
-  const [fullName,   setFullName]   = useState(initialProfile?.full_name   || currentUser.fullName)
+  const [fullName,   setFullName]   = useState(initialProfile?.full_name   || initialFullName)
   const [dob,        setDob]        = useState(initialProfile?.dob         || '')
   const [gender,     setGender]     = useState(initialProfile?.gender      || '')
   const [cccdNumber, setCccdNumber] = useState(initialProfile?.cccd_number || '')
-  const [occupation, setOccupation] = useState(initialProfile?.occupation  || 'Chủ trọ')
+  const [occupation, setOccupation] = useState(initialProfile?.occupation  || defaultOccupation || '')
   const [address,    setAddress]    = useState(initialProfile?.address     || '')
 
   const initialFront = initialDocuments.find(d => d.type === 'cccd_front')?.file_url || ''
@@ -74,9 +97,10 @@ export default function OwnerProfileEditForm({ currentUser, initialProfile, init
     if (!fullName.trim()) { showToast('Vui lòng nhập họ và tên'); return }
     setSaving(true)
     try {
-      const res = await fetch('/api/profile/owner-save', {
+      const res = await fetch(saveEndpoint, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          targetUserId,
           personal: {
             avatar_url:  avatarUrl,
             full_name:   fullName.trim(),
@@ -90,7 +114,7 @@ export default function OwnerProfileEditForm({ currentUser, initialProfile, init
       const data = await res.json()
       if (!res.ok || data.error) throw new Error(data.error || 'Lưu thất bại')
       showToast('✅ Đã lưu hồ sơ')
-      setTimeout(() => router.push('/profile'), 800)
+      setTimeout(() => router.push(successHref), 800)
     } catch (err) { showToast(`Lỗi: ${(err as Error).message}`) }
     finally { setSaving(false) }
   }
@@ -99,8 +123,8 @@ export default function OwnerProfileEditForm({ currentUser, initialProfile, init
     <div className="min-h-screen bg-gray-50 pb-20">
       <header className="sticky top-0 z-20 bg-white shadow-soft">
         <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
-          <button onClick={() => router.push('/profile')} className="text-sm font-bold text-gray-500 px-2 py-1">← Hủy</button>
-          <h1 className="text-base font-black text-gray-800">Sửa hồ sơ chủ trọ</h1>
+          <button onClick={() => router.push(cancelHref)} className="text-sm font-bold text-gray-500 px-2 py-1">← Hủy</button>
+          <h1 className="text-base font-black text-gray-800 truncate max-w-[60%]">{headerTitle}</h1>
           <button onClick={handleSave} disabled={saving}
             className="btn-primary text-sm px-4 py-1.5 disabled:opacity-50">
             {saving ? 'Đang lưu…' : 'Lưu'}
@@ -130,7 +154,7 @@ export default function OwnerProfileEditForm({ currentUser, initialProfile, init
               onChange={e => setFullName(e.target.value)} />
           </Field>
           <Field label="Số điện thoại">
-            <input className="input-field bg-gray-50" value={currentUser.phone} disabled />
+            <input className="input-field bg-gray-50" value={phone} disabled />
           </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Ngày sinh">

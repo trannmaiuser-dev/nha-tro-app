@@ -72,6 +72,10 @@ export default function TenantSummaryPage({ userId, profile, emergency, related,
             <BackIcon />
           </button>
           <h1 className="text-lg font-black text-gray-800 flex-1">Hồ sơ khách thuê</h1>
+          <button onClick={() => router.push(`/profile/${userId}/edit`)}
+            className="bg-gray-100 text-gray-700 text-xs font-bold px-3 py-2 rounded-xl active:scale-95">
+            ✏️ Sửa
+          </button>
           {status !== 'confirmed' && (
             <button onClick={confirmProfile} disabled={confirming}
               className="bg-primary-600 text-white text-xs font-bold px-3 py-2 rounded-xl active:scale-95 disabled:opacity-50">
