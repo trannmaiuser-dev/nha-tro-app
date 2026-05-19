@@ -116,13 +116,21 @@ export default function ProfileSelfPage({ currentUser, profile, room }: Props) {
                 <span className="text-xs bg-orange-50 text-orange-500 font-bold px-2.5 py-1 rounded-full">Chưa tạo</span>
               )}
             </div>
-            {(!profile || profile.profile_status === 'draft') && (
-              <button onClick={() => router.push('/profile/setup')}
-                className="btn-primary w-full mt-3 text-sm py-3">
-                {profile ? '✏️ Hoàn thiện hồ sơ' : '+ Tạo hồ sơ'}
-              </button>
-            )}
+            <button onClick={() => router.push('/profile/setup')}
+              className="btn-primary w-full mt-3 text-sm py-3">
+              {!profile ? '+ Tạo hồ sơ' :
+               profile.profile_status === 'draft' ? '✏️ Hoàn thiện hồ sơ' :
+               '✏️ Sửa hồ sơ'}
+            </button>
           </div>
+        )}
+
+        {/* Owner: edit self profile button */}
+        {currentUser.role === 'owner' && (
+          <button onClick={() => router.push('/profile/edit')}
+            className="btn-primary w-full text-sm py-3">
+            ✏️ Sửa hồ sơ cá nhân
+          </button>
         )}
 
         {/* Owner quick actions */}
