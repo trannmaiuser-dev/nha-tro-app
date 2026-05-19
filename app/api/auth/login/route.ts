@@ -26,6 +26,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Mật khẩu không đúng' }, { status: 401 })
   }
 
+  if (user.locked_at) {
+    return NextResponse.json({
+      error: 'Tài khoản đang tạm khóa, liên hệ chủ trọ để mở khóa',
+    }, { status: 403 })
+  }
+
+  if (user.tenant_status === 'archived') {
+    return NextResponse.json({
+      error: 'Tài khoản đã ngừng sử dụng, liên hệ chủ trọ',
+    }, { status: 403 })
+  }
+
   const token = await createSession({
     userId:            user.id,
     phone:             user.phone,

@@ -20,7 +20,7 @@ export default async function TenantProfilePage({ params }: { params: { userId: 
     sb.from('emergency_contacts').select('*').eq('tenant_id', profile.id).maybeSingle().then(r => r.data),
     sb.from('related_persons').select('*').eq('tenant_id', profile.id).then(r => r.data ?? []),
     sb.from('tenant_documents').select('*').eq('tenant_id', profile.id).then(r => r.data ?? []),
-    sb.from('users').select('phone, full_name, is_profile_complete').eq('id', params.userId).single().then(r => r.data),
+    sb.from('users').select('phone, full_name, is_profile_complete, tenant_status, locked_at, locked_reason').eq('id', params.userId).single().then(r => r.data),
     sb.from('room_tenants')
       .select('room:rooms!room_id(id, name, floor, price)')
       .eq('user_id', params.userId)

@@ -3,7 +3,17 @@
 import Image from 'next/image'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import type { TenantProfile, EmergencyContact, RelatedPerson, TenantDocument } from '@/types'
+
+interface TenantUserExt {
+  phone: string
+  full_name: string
+  is_profile_complete: boolean
+  tenant_status?: string
+  locked_at?: string | null
+  locked_reason?: string | null
+}
 
 interface Props {
   userId:     string
@@ -11,7 +21,7 @@ interface Props {
   emergency:  EmergencyContact | null
   related:    RelatedPerson[]
   documents:  TenantDocument[]
-  tenantUser: { phone: string; full_name: string; is_profile_complete: boolean } | null
+  tenantUser: TenantUserExt | null
   room:       { id: string; name: string; floor: number; price: number } | null
 }
 
@@ -28,8 +38,52 @@ export default function TenantSummaryPage({ userId, profile, emergency, related,
   const [confirming, setConfirming] = useState(false)
   const [toast, setToast] = useState('')
   const [status, setStatus] = useState(profile.profile_status)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [lockedAt, setLockedAt] = useState<string | null>(tenantUser?.locked_at ?? null)
+  const [tenantStatus, setTenantStatus] = useState(tenantUser?.tenant_status ?? 'active')
+  const [confirmDialog, setConfirmDialog] = useState<null | {
+    title: string; description: string; confirmLabel: string; action: () => Promise<void>
+  }>(null)
+  const [actionLoading, setActionLoading] = useState(false)
 
   function showToast(m: string) { setToast(m); setTimeout(() => setToast(''), 3000) }
+
+  async function lockTenant(locked: boolean) {
+    setActionLoading(true)
+    try {
+      const reason = locked ? (prompt('Lý do tạm khóa (không bắt buộc):') ?? undefined) : undefined
+      const res = await fetch(`/api/admin/tenants/${userId}/lock`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ locked, reason }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Thất bại')
+      setLockedAt(locked ? new Date().toISOString() : null)
+      showToast(locked ? '🔒 Đã tạm khóa account' : '🔓 Đã mở khóa account')
+    } catch (err) {
+      showToast(`Lỗi: ${(err as Error).message}`)
+    } finally {
+      setActionLoading(false)
+      setConfirmDialog(null)
+    }
+  }
+
+  async function archiveTenant() {
+    setActionLoading(true)
+    try {
+      const res = await fetch(`/api/admin/tenants/${userId}/archive`, { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Thất bại')
+      setTenantStatus('archived')
+      showToast('📦 Đã lưu trữ account')
+      setTimeout(() => router.push('/admin/tenants'), 1200)
+    } catch (err) {
+      showToast(`Lỗi: ${(err as Error).message}`)
+    } finally {
+      setActionLoading(false)
+      setConfirmDialog(null)
+    }
+  }
 
   async function confirmProfile() {
     setConfirming(true)
@@ -82,6 +136,51 @@ export default function TenantSummaryPage({ userId, profile, emergency, related,
               {confirming ? '...' : 'Xác nhận'}
             </button>
           )}
+          <div className="relative">
+            <button onClick={() => setMenuOpen(o => !o)}
+              className="bg-gray-100 text-gray-700 text-lg font-bold px-2.5 py-2 rounded-xl active:scale-95">
+              ⋮
+            </button>
+            {menuOpen && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={() => setMenuOpen(false)} />
+                <div className="absolute right-0 top-full mt-2 bg-white rounded-2xl shadow-float z-40 min-w-[200px] overflow-hidden">
+                  {lockedAt ? (
+                    <button onClick={() => { setMenuOpen(false); lockTenant(false) }}
+                      className="w-full text-left text-sm font-semibold px-4 py-3 hover:bg-green-50 active:scale-98 text-green-700">
+                      🔓 Mở khóa account
+                    </button>
+                  ) : (
+                    <button onClick={() => {
+                      setMenuOpen(false)
+                      setConfirmDialog({
+                        title: 'Tạm khóa account?',
+                        description: 'Khách sẽ không thể đăng nhập đến khi được mở lại. Có thể mở khóa bất cứ lúc nào.',
+                        confirmLabel: '🔒 Tạm khóa',
+                        action: () => lockTenant(true),
+                      })
+                    }}
+                      className="w-full text-left text-sm font-semibold px-4 py-3 hover:bg-orange-50 active:scale-98 text-orange-700">
+                      🔒 Tạm khóa account
+                    </button>
+                  )}
+                  <button onClick={() => {
+                    setMenuOpen(false)
+                    setConfirmDialog({
+                      title: 'Lưu trữ account?',
+                      description: 'Account sẽ chuyển sang trạng thái "archived" và rời khỏi danh sách khách thuê hoạt động. Dữ liệu vẫn giữ lại 2 năm theo UC-07.',
+                      confirmLabel: '📦 Lưu trữ',
+                      action: archiveTenant,
+                    })
+                  }}
+                    disabled={tenantStatus === 'archived'}
+                    className="w-full text-left text-sm font-semibold px-4 py-3 hover:bg-gray-50 active:scale-98 text-red-700 disabled:opacity-40 disabled:cursor-not-allowed border-t border-gray-100">
+                    📦 Lưu trữ (xóa mềm)
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </header>
 
@@ -100,10 +199,15 @@ export default function TenantSummaryPage({ userId, profile, emergency, related,
               </h2>
               {room && <p className="text-sm text-gray-500">Phòng {room.name} · Tầng {room.floor}</p>}
               <p className="text-sm text-gray-500">{tenantUser?.phone}</p>
-              <div className="mt-2 flex items-center gap-2">
+              <div className="mt-2 flex items-center gap-2 flex-wrap">
                 <span className={statusBadge.cls}>{statusBadge.text}</span>
                 {missingDocs && <span className="badge bg-orange-50 text-orange-500 text-xs">📎 Thiếu giấy tờ</span>}
+                {lockedAt && <span className="badge bg-red-50 text-red-600 text-xs">🔒 Tạm khóa</span>}
+                {tenantStatus === 'archived' && <span className="badge bg-gray-100 text-gray-600 text-xs">📦 Lưu trữ</span>}
               </div>
+              {lockedAt && tenantUser?.locked_reason && (
+                <p className="text-xs text-red-500 mt-1.5">Lý do: {tenantUser.locked_reason}</p>
+              )}
             </div>
           </div>
         </div>
@@ -247,6 +351,16 @@ export default function TenantSummaryPage({ userId, profile, emergency, related,
           {toast}
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!confirmDialog}
+        title={confirmDialog?.title ?? ''}
+        description={confirmDialog?.description ?? ''}
+        confirmLabel={confirmDialog?.confirmLabel ?? 'Xác nhận'}
+        loading={actionLoading}
+        onCancel={() => setConfirmDialog(null)}
+        onConfirm={() => confirmDialog?.action()}
+      />
     </div>
   )
 }
